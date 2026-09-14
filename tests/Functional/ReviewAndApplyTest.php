@@ -175,7 +175,10 @@ final class ReviewAndApplyTest extends FunctionalTestCase
     {
         $product = $this->proposeFor($this->product(['sku' => 'SKU-1', 'name' => 'Cable', 'title' => ['en' => 'Cable']], false));
         $this->runCommand('tsf:gatekeeper:ai:approve', ['--all' => true]);
-        $product->delete();
+        // a delete through Pimcore takes the proposals with it (DataObjectListener); an object that
+        // vanished another way leaves them behind
+        $this->connection()->executeStatement('DELETE FROM objects WHERE id = :id', ['id' => $product->getId()]);
+        \Pimcore\Cache\RuntimeCache::clear();
 
         /** @var ApplyRunner $runner */
         $runner = $this->service(ApplyRunner::class);

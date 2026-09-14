@@ -6,7 +6,12 @@ All notable changes to this bundle are documented here. The format follows
 
 ## [Unreleased]
 
+First release of the AI layer, for Pimcore 11.x, 12.x and 2026.x on PHP 8.1 to 8.5, on top of
+`kerimkaralic/pimcore-gatekeeper-bundle` ^1.1.
+
 ### Added
+
+- `DataObjectListener`: deleting an object deletes its proposals.
 
 - Bundle skeleton: `TsfGatekeeperAiBundle`, configuration tree `tsf_gatekeeper_ai` (provider,
   Anthropic settings, pricing, knowledge base folder, run limits, field deny list, per-class
