@@ -234,7 +234,10 @@ final class AnthropicProviderTest extends Unit
             return $next;
         });
 
-        $logger = new class (function (string $line): void { $this->logs[] = $line; }) extends AbstractLogger {
+        $record = function (string $line): void {
+            $this->logs[] = $line;
+        };
+        $logger = new class ($record) extends AbstractLogger {
             public function __construct(private readonly \Closure $record)
             {
             }
@@ -245,7 +248,11 @@ final class AnthropicProviderTest extends Unit
             }
         };
 
-        return new class ($client, $settings, $logger, function (int $seconds): void { $this->pauses[] = $seconds; }) extends AnthropicProvider {
+        $onPause = function (int $seconds): void {
+            $this->pauses[] = $seconds;
+        };
+
+        return new class ($client, $settings, $logger, $onPause) extends AnthropicProvider {
             public function __construct(MockHttpClient $client, Settings $settings, AbstractLogger $logger, private readonly \Closure $onPause)
             {
                 parent::__construct($client, $settings, $logger);
