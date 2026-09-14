@@ -9,7 +9,6 @@ use Psr\Log\AbstractLogger;
 use Symfony\Component\Config\Definition\Processor;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Tsf\GatekeeperAiBundle\DependencyInjection\Configuration;
 use Tsf\GatekeeperAiBundle\Model\EnrichmentRequest;
 use Tsf\GatekeeperAiBundle\Service\Config\Settings;
@@ -129,6 +128,18 @@ final class AnthropicProviderTest extends Unit
         self::assertStringContainsString('Gatekeeper AI: authentication_error (HTTP 401)', implode("\n", $this->logs));
     }
 
+    public function testAHugeRetryAfterIsCapped(): void
+    {
+        $provider = $this->provider(['anthropic' => ['max_retries' => 1]], [
+            new MockResponse('{"error":{"type":"rate_limit_error","message":"slow"}}', ['http_code' => 429, 'response_headers' => ['retry-after' => '86400']]),
+            new MockResponse(json_encode(['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => '{"title":"ok"}']], 'usage' => []]) ?: ''),
+        ]);
+
+        $provider->generate($this->request());
+
+        self::assertSame([AnthropicProvider::MAX_RETRY_AFTER_SECONDS], $this->pauses);
+    }
+
     public function testRateLimitsAreRetriedWithRetryAfterThenBackoff(): void
     {
         $provider = $this->provider(['anthropic' => ['max_retries' => 3]], [
@@ -223,31 +234,26 @@ final class AnthropicProviderTest extends Unit
             return $next;
         });
 
-        $logs = &$this->logs;
-        $logger = new class ($logs) extends AbstractLogger {
-            /** @param string[] $logs */
-            public function __construct(private array &$logs)
+        $logger = new class (function (string $line): void { $this->logs[] = $line; }) extends AbstractLogger {
+            public function __construct(private readonly \Closure $record)
             {
             }
 
             public function log($level, string|\Stringable $message, array $context = []): void
             {
-                $this->logs[] = $level . ': ' . $message;
+                ($this->record)($level . ': ' . $message);
             }
         };
 
-        $pauses = &$this->pauses;
-
-        return new class ($client, $settings, $logger, $pauses) extends AnthropicProvider {
-            /** @param int[] $pauses */
-            public function __construct(MockHttpClient $client, Settings $settings, AbstractLogger $logger, private array &$pauses)
+        return new class ($client, $settings, $logger, function (int $seconds): void { $this->pauses[] = $seconds; }) extends AnthropicProvider {
+            public function __construct(MockHttpClient $client, Settings $settings, AbstractLogger $logger, private readonly \Closure $onPause)
             {
                 parent::__construct($client, $settings, $logger);
             }
 
             protected function pause(int $seconds): void
             {
-                $this->pauses[] = $seconds;
+                ($this->onPause)($seconds);
             }
         };
     }

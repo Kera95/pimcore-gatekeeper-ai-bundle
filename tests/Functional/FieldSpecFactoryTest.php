@@ -9,8 +9,8 @@ use Tsf\GatekeeperAiBundle\Model\FieldSpec;
 use Tsf\GatekeeperAiBundle\Service\Field\FieldDescriber;
 use Tsf\GatekeeperAiBundle\Service\Field\FieldSpecFactory;
 use Tsf\GatekeeperAiBundle\Service\Field\SchemaBuilder;
-use Tsf\GatekeeperAiBundle\Tests\Support\FunctionalTestCase;
 use Tsf\GatekeeperAiBundle\Tests\Support\Fixture\ClassFixtures;
+use Tsf\GatekeeperAiBundle\Tests\Support\FunctionalTestCase;
 
 final class FieldSpecFactoryTest extends FunctionalTestCase
 {
@@ -51,8 +51,10 @@ final class FieldSpecFactoryTest extends FunctionalTestCase
     private function spec(FieldSpecFactory $factory, ClassDefinition $class, string $path): FieldSpec
     {
         $spec = $factory->create($class, $path);
-        self::assertNotNull($spec, $path);
+        if ($spec === null) {
+            self::fail(sprintf('field "%s" does not resolve', $path));
+        }
 
-        return $spec ?? throw new \LogicException($path);
+        return $spec;
     }
 }

@@ -45,6 +45,15 @@ final class ProposalValidatorTest extends Unit
         self::assertSame("Line one.\nLine two & three.", $result->getValue());
     }
 
+    public function testAngleBracketsInProseAreNotTags(): void
+    {
+        $textarea = new FieldSpec('description', FieldSpec::TYPE_TEXTAREA, 'Description', null, true, null, [], null);
+        $wysiwyg = new FieldSpec('long_description', FieldSpec::TYPE_WYSIWYG, 'Long', null, true, null, [], null);
+
+        self::assertSame('Fits screens <15 inches, weight <5kg, 3 > 2.', $this->validator->validate($textarea, 'Fits screens <15 inches, weight <5kg, 3 > 2.<!-- note -->')->getValue());
+        self::assertSame('<p>Fits screens <15 inches</p>', $this->validator->validate($wysiwyg, '<P CLASS="a">Fits screens <15 inches</P>')->getValue());
+    }
+
     public function testWysiwygKeepsAllowedTagsOnlyWithoutAttributes(): void
     {
         $spec = new FieldSpec('long_description', FieldSpec::TYPE_WYSIWYG, 'Long', null, true, null, [], null);

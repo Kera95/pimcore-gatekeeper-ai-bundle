@@ -35,7 +35,8 @@ final class SchemaBuilder
 
         return [
             'type' => 'object',
-            'properties' => $properties,
+            // an empty PHP array encodes as [], which is not a valid "properties" object
+            'properties' => $properties === [] ? new \stdClass() : $properties,
             'required' => $required,
             'additionalProperties' => false,
         ];

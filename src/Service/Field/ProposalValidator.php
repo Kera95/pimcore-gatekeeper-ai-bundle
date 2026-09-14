@@ -20,6 +20,11 @@ use function sprintf;
  */
 final class ProposalValidator
 {
+    /**
+     * An opening or closing HTML tag: a "<" followed by a tag name, then anything up to ">"
+     */
+    private const TAG_PATTERN = '/<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b[^<>]*>/';
+
     public function validate(FieldSpec $spec, mixed $value): ValidationResult
     {
         if ($spec->isMultiValued()) {
@@ -92,26 +97,39 @@ final class ProposalValidator
     /**
      * Trims, unifies line endings, strips what the field cannot hold: line breaks in inputs,
      * every tag in plain text fields, tags outside the allow-list in HTML fields.
+     *
+     * Tags are matched by a pattern rather than strip_tags(), which treats any "<" followed by a
+     * non-space character as the start of a tag and silently drops the rest of the text
+     * ("screens <15 inches" would become "screens ").
      */
     private function normalise(string $text, FieldSpec $spec): string
     {
         $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = preg_replace('/<!--.*?-->/s', '', $text) ?? $text;
 
         if ($spec->allowsHtml()) {
-            $text = strip_tags($text, array_map(static fn (string $tag): string => '<' . $tag . '>', FieldDescriber::HTML_TAGS));
-            // tags with attributes survive strip_tags; drop the attributes
-            $text = preg_replace('/<(\/?)(' . implode('|', FieldDescriber::HTML_TAGS) . ')\b[^>]*>/i', '<$1$2>', $text) ?? $text;
+            // keep the allowed tags without their attributes, drop every other tag
+            $text = preg_replace_callback(
+                self::TAG_PATTERN,
+                static fn (array $m): string => in_array(strtolower($m[2]), FieldDescriber::HTML_TAGS, true) ? '<' . $m[1] . strtolower($m[2]) . '>' : '',
+                $text
+            ) ?? $text;
             $text = trim($text);
 
-            return trim(strip_tags($text)) === '' ? '' : $text;
+            return trim($this->stripTags($text)) === '' ? '' : $text;
         }
 
-        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = html_entity_decode($this->stripTags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         if ($spec->getType() === FieldSpec::TYPE_INPUT || $spec->hasOptions()) {
             $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
         }
 
         return trim($text);
+    }
+
+    private function stripTags(string $text): string
+    {
+        return preg_replace(self::TAG_PATTERN, '', $text) ?? $text;
     }
 
     /**

@@ -40,4 +40,11 @@ final class SchemaBuilderTest extends Unit
         self::assertStringNotContainsString('minLength', $json);
         self::assertStringNotContainsString('maxItems', $json);
     }
+
+    public function testNoFieldsIsStillAnObjectSchema(): void
+    {
+        $json = json_encode((new SchemaBuilder(new FieldDescriber()))->build([]));
+
+        self::assertSame('{"type":"object","properties":{},"required":[],"additionalProperties":false}', $json);
+    }
 }

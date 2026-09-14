@@ -37,6 +37,12 @@ class AnthropicProvider implements EnrichmentProviderInterface
     public const MAX_BACKOFF_SECONDS = 30;
 
     /**
+     * Longest pause a retry-after header is honoured for; beyond that the run should fail
+     * instead of blocking the process
+     */
+    public const MAX_RETRY_AFTER_SECONDS = 120;
+
+    /**
      * The request-id response header, merged into the decoded body under this key
      */
     public const REQUEST_ID_KEY = '_request_id';
@@ -168,7 +174,9 @@ class AnthropicProvider implements EnrichmentProviderInterface
                     throw $e;
                 }
 
-                $seconds = $e->getRetryAfterSeconds() ?? min(self::MAX_BACKOFF_SECONDS, 2 ** $attempt);
+                $seconds = $e->getRetryAfterSeconds() !== null
+                    ? min(self::MAX_RETRY_AFTER_SECONDS, $e->getRetryAfterSeconds())
+                    : min(self::MAX_BACKOFF_SECONDS, 2 ** $attempt);
                 $this->logger->warning(sprintf('Gatekeeper AI: %s, retrying in %ds (attempt %d of %d).', $e->describe(), $seconds, $attempt, $attempts));
                 $this->pause($seconds);
             }

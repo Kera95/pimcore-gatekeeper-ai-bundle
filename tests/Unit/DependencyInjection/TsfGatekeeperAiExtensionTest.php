@@ -10,10 +10,10 @@ use Tsf\GatekeeperAiBundle\Command\ValidateCommand;
 use Tsf\GatekeeperAiBundle\DependencyInjection\TsfGatekeeperAiExtension;
 use Tsf\GatekeeperAiBundle\Installer;
 use Tsf\GatekeeperAiBundle\Service\Config\Settings;
+use Tsf\GatekeeperAiBundle\Service\ProposalStore;
 use Tsf\GatekeeperAiBundle\Service\Provider\Anthropic\AnthropicProvider;
 use Tsf\GatekeeperAiBundle\Service\Provider\EnrichmentProviderInterface;
 use Tsf\GatekeeperAiBundle\Service\Provider\FakeProvider;
-use Tsf\GatekeeperAiBundle\Service\ProposalStore;
 
 final class TsfGatekeeperAiExtensionTest extends Unit
 {

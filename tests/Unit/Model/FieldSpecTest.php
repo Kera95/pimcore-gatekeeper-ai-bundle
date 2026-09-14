@@ -58,12 +58,12 @@ final class FieldSpecTest extends Unit
     {
         $select = new Data\Multiselect();
         $select->setName('sizes');
-        $select->setOptions([['key' => 'Small', 'value' => 's'], ['key' => 'Ten', 'value' => '10'], ['key' => 'Large', 'value' => 'l']]);
+        $select->setOptions([['key' => '(none)', 'value' => ''], ['key' => 'Small', 'value' => 's'], ['key' => 'Ten', 'value' => '10'], ['key' => 'Large', 'value' => 'l']]);
         $select->setMaxItems(2);
 
         $spec = FieldSpec::fromDefinition('sizes', $select, false);
 
-        self::assertSame(['s' => 'Small', 10 => 'Ten', 'l' => 'Large'], $spec->getOptions());
+        self::assertSame(['s' => 'Small', 10 => 'Ten', 'l' => 'Large'], $spec->getOptions(), 'the empty option is not a value to propose');
         self::assertSame(['s', '10', 'l'], $spec->getOptionValues());
         self::assertTrue($spec->hasOptions());
         self::assertTrue($spec->isMultiValued());

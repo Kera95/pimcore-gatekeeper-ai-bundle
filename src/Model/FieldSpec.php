@@ -26,7 +26,7 @@ final class FieldSpec
     public const TYPE_MULTISELECT = 'multiselect';
 
     /**
-     * @param array<string, string> $options value => label, in definition order; empty for text fields
+     * @param array<int|string, string> $options value => label, in definition order (PHP turns numeric values into int keys); empty for text fields
      */
     public function __construct(
         private readonly string $path,
@@ -53,7 +53,8 @@ final class FieldSpec
             $maxLength = $definition->getMaxLength();
         } elseif ($definition instanceof Data\Select || $definition instanceof Data\Multiselect) {
             foreach ($definition->getOptions() ?? [] as $option) {
-                if (is_array($option) && isset($option['value'])) {
+                // the empty option ("none") is not a value to propose
+                if (is_array($option) && isset($option['value']) && (string) $option['value'] !== '') {
                     $options[(string) $option['value']] = (string) ($option['key'] ?? $option['value']);
                 }
             }
@@ -111,7 +112,7 @@ final class FieldSpec
     }
 
     /**
-     * @return array<string, string> value => label
+     * @return array<int|string, string> value => label
      */
     public function getOptions(): array
     {
