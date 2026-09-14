@@ -1,0 +1,61 @@
+name: Quality
+
+on:
+    push:
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: quality-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    quality:
+        name: Static analysis and code style
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+
+        steps:
+            - name: Check out the bundle
+              uses: actions/checkout@v6
+
+            - name: Set up PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.3'
+                  extensions: curl, dom, exif, fileinfo, gd, iconv, intl, mbstring, pdo_mysql, simplexml, zip
+                  coverage: none
+                  tools: composer:v2
+
+            - name: Locate the Composer cache
+              id: composer-cache
+              run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+            - name: Cache Composer downloads
+              uses: actions/cache@v5
+              with:
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  key: ${{ runner.os }}-quality-php-8.3-${{ hashFiles('composer.json') }}
+                  restore-keys: ${{ runner.os }}-quality-php-8.3-
+
+            # analysed against the Pimcore line that supports this PHP version; the configured
+            # phpVersion range keeps the code compatible with 8.1 up to 8.5
+            - name: Install dependencies
+              run: >-
+                  composer update
+                  --with "pimcore/pimcore:^12.0"
+                  --prefer-dist
+                  --no-interaction
+                  --no-progress
+                  --no-blocking
+
+            - name: PHPStan
+              run: vendor/bin/phpstan analyse --no-progress --error-format=github
+
+            # reported even when PHPStan failed, so one push surfaces both kinds of problem
+            - name: PHP-CS-Fixer
+              if: ${{ !cancelled() }}
+              run: vendor/bin/php-cs-fixer fix --dry-run --diff

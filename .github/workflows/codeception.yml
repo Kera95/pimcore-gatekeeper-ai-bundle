@@ -1,0 +1,110 @@
+name: Codeception
+
+on:
+    push:
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: codeception-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    tests:
+        name: Pimcore ${{ matrix.pimcore_line }} / PHP ${{ matrix.php_version }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        services:
+            mariadb:
+                image: mariadb:10.11
+                env:
+                    MARIADB_ROOT_PASSWORD: root
+                    MARIADB_DATABASE: tsf_gatekeeper_ai_test
+                ports:
+                    - 3306:3306
+                options: >-
+                    --health-cmd="healthcheck.sh --connect --innodb_initialized"
+                    --health-interval=10s
+                    --health-timeout=5s
+                    --health-retries=10
+
+        env:
+            # the functional suite drops and recreates this database on every run
+            PIMCORE_TEST_DB_DSN: mysql://root:root@127.0.0.1:3306/tsf_gatekeeper_ai_test
+
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - pimcore_line: '11.x'
+                      pimcore_version: '^11.0'
+                      php_version: '8.1'
+                      legacy: true
+                    - pimcore_line: '12.x'
+                      pimcore_version: '^12.0'
+                      php_version: '8.3'
+                      legacy: true
+                    - pimcore_line: '2026.x'
+                      pimcore_version: '^2026.1'
+                      php_version: '8.5'
+                      legacy: false
+
+        steps:
+            - name: Check out the bundle
+              uses: actions/checkout@v6
+
+            - name: Set up PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ matrix.php_version }}
+                  extensions: curl, dom, exif, fileinfo, gd, iconv, intl, mbstring, pdo_mysql, simplexml, zip
+                  coverage: none
+                  tools: composer:v2
+
+            - name: Locate the Composer cache
+              id: composer-cache
+              run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+            - name: Cache Composer downloads
+              uses: actions/cache@v5
+              with:
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  key: ${{ runner.os }}-php-${{ matrix.php_version }}-pimcore-${{ matrix.pimcore_line }}-${{ hashFiles('composer.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-php-${{ matrix.php_version }}-pimcore-${{ matrix.pimcore_line }}-
+                      ${{ runner.os }}-php-${{ matrix.php_version }}-
+
+            - name: Validate Composer metadata
+              run: composer validate --strict --no-check-publish
+
+            - name: Install dependencies
+              if: ${{ !matrix.legacy }}
+              run: >-
+                  composer update
+                  --with "pimcore/pimcore:${{ matrix.pimcore_version }}"
+                  --prefer-dist
+                  --no-interaction
+                  --no-progress
+
+            # Pimcore 11 and 12 intentionally remain compatibility targets even though Composer
+            # reports advisories for those legacy lines. This only permits installation; test
+            # failures remain blocking.
+            - name: Install legacy dependencies
+              if: ${{ matrix.legacy }}
+              run: >-
+                  composer update
+                  --with "pimcore/pimcore:${{ matrix.pimcore_version }}"
+                  --prefer-dist
+                  --no-interaction
+                  --no-progress
+                  --no-blocking
+
+            - name: Run the unit suite
+              run: vendor/bin/codecept run Unit
+
+            - name: Run the functional suite
+              run: vendor/bin/codecept run Functional

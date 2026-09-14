@@ -1,0 +1,43 @@
+parameters:
+    level: 6
+    paths:
+        - src
+        - tests
+    excludePaths:
+        analyseAndScan:
+            # the throwaway project of the functional suite: generated classes, caches and the
+            # service reference Symfony writes next to its configuration. Both only exist once
+            # the suite has run, hence optional
+            - tests/Support/App/var (?)
+            - tests/Support/App/config/reference.php (?)
+    # Pimcore ships its Codeception support under autoload-dev, so composer does not register it
+    # for dependent packages; the test bootstrap maps the namespace by hand and so does this
+    scanDirectories:
+        - vendor/pimcore/pimcore/tests
+    # the bundle supports PHP 8.1 up to 8.5; analysing the whole range catches syntax and library
+    # calls that are not available on every supported version
+    phpVersion:
+        min: 80100
+        max: 80500
+    # config arrays reach the services from the container, so their shapes are documented rather
+    # than guaranteed; the defensive checks around them are deliberate
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # The functional suite works with DataObject classes that Pimcore generates from the
+        # fixtures while the suite runs, so their getters, setters and class names cannot exist
+        # when the code is analysed. src/ knows nothing of them and stays fully checked.
+        -
+            identifier: method.notFound
+            path: tests/Support/FunctionalTestCase.php
+        -
+            identifier: class.notFound
+            path: tests/Support/FunctionalTestCase.php
+        # Pimcore's BundleInterface declares getInstaller(), Symfony's does not
+        -
+            identifier: method.notFound
+            paths:
+                - tests/Support/Helper/GatekeeperAi.php
+                - tests/Functional/InstallerTest.php
+        # defined by the test bootstrap before any test class is loaded
+        -
+            message: '#Constant TSF_GATEKEEPER_AI_VENDOR_DIR not found#'

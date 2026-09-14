@@ -1,0 +1,74 @@
+# Copy this file to config/packages/tsf_gatekeeper_ai.yaml in the consuming Pimcore project.
+# The classes listed here need a rule under tsf_gatekeeper.classes: only fields the Gatekeeper
+# reports missing are ever proposed.
+
+tsf_gatekeeper_ai:
+    # The LLM provider. Only "anthropic" ships with this version.
+    provider: anthropic
+
+    anthropic:
+        # Read from the environment by default; never put the key into a committed file.
+        api_key: '%env(ANTHROPIC_API_KEY)%'
+
+        # Model id. claude-opus-5 (default) writes best; claude-sonnet-5 costs 2.5x less.
+        model: claude-opus-5
+
+        # Output token ceiling per request.
+        max_tokens: 2048
+
+        # Reasoning effort: low | medium | high. Copywriting from a knowledge base needs "low".
+        effort: low
+
+        # Cache the static prompt prefix (instructions, knowledge base, field descriptions)
+        # across the requests of one run.
+        prompt_caching: true
+
+        # Cache lifetime: 5m | 1h. "1h" costs 2x input per cache write.
+        cache_ttl: 5m
+
+        # HTTP timeout per request in seconds.
+        timeout: 60
+
+        # Attempts per object for rate limits, overloads and network errors.
+        max_retries: 3
+
+    # USD per million tokens, keyed by model id. Merged over the built-in table
+    # (claude-opus-5, claude-sonnet-5, claude-haiku-4-5); add models that are not listed.
+    pricing:
+        claude-opus-5: { input: 5.00, output: 25.00, cache_write: 6.25, cache_read: 0.50 }
+
+    context:
+        # Asset folder holding the knowledge base as Markdown files.
+        asset_folder: /gatekeeper/context
+
+        # Ceiling for the assembled knowledge base; a larger one aborts the run.
+        max_tokens: 20000
+
+    limits:
+        # Hard stops for one propose run.
+        max_objects_per_run: 200
+        max_cost_per_run: 10.00
+
+        # Assumed output size per field, used by the cost estimate only.
+        avg_output_tokens_per_field: 150
+
+    fields:
+        # Never proposed, whatever the class configuration says. Compared case-insensitively
+        # against the last segment of the field path.
+        deny: [sku, ean, gtin, price, id]
+
+    classes:
+        Product:
+            # Fields the model may fill, in the Gatekeeper addressing syntax. Only input,
+            # textarea, wysiwyg, select and multiselect fields can be proposed.
+            enrich: [title, short_description, long_description, seo_title]
+
+            # Languages to propose for localized fields. Omit for the languages of the
+            # Gatekeeper rule.
+            languages: [en, de]
+
+            # Optional text for the model, appended after the knowledge base for this class.
+            instructions: >
+                Write for online shoppers. Short sentences, no superlatives.
+        Category:
+            enrich: [title]

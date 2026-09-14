@@ -1,0 +1,68 @@
+{
+  "name": "kerimkaralic/pimcore-gatekeeper-ai-bundle",
+  "description": "AI enrichment layer for the Gatekeeper completeness bundle: proposes values for missing DataObject fields from a Markdown knowledge base, stores them for review, applies approved ones.",
+  "type": "pimcore-bundle",
+  "license": "MIT",
+  "keywords": [
+    "pimcore",
+    "pimcore-bundle",
+    "ai",
+    "anthropic",
+    "claude",
+    "enrichment",
+    "data-quality",
+    "pim"
+  ],
+  "require": {
+    "php": ">=8.1 <8.6",
+    "doctrine/dbal": "^3.6 || ^4.0",
+    "kerimkaralic/pimcore-gatekeeper-bundle": "^1.1",
+    "pimcore/pimcore": "^11.0 || ^12.0 || ^2026.1",
+    "psr/log": "^1.1 || ^2.0 || ^3.0",
+    "symfony/config": "^6.2 || ^7.3",
+    "symfony/console": "^6.2 || ^7.3",
+    "symfony/dependency-injection": "^6.2 || ^7.3",
+    "symfony/http-client": "^6.2 || ^7.3",
+    "symfony/http-client-contracts": "^3.0",
+    "symfony/http-kernel": "^6.2 || ^7.3"
+  },
+  "require-dev": {
+    "codeception/codeception": "^5.0",
+    "codeception/module-asserts": "^3.0",
+    "codeception/module-symfony": "^3.5",
+    "friendsofphp/php-cs-fixer": "^3.95",
+    "phpstan/phpstan": "^2.1",
+    "phpunit/phpunit": "^10.5 || ^11.0",
+    "symfony/event-dispatcher": "^6.2 || ^7.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Tsf\\GatekeeperAiBundle\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Tsf\\GatekeeperAiBundle\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "pimcore": {
+      "bundles": [
+        "Tsf\\GatekeeperAiBundle\\TsfGatekeeperAiBundle"
+      ]
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "scripts": {
+    "test": "codecept run Unit && codecept run Functional",
+    "test:unit": "codecept run Unit",
+    "test:functional": "codecept run Functional",
+    "phpstan": "phpstan analyse --no-progress",
+    "cs:check": "php-cs-fixer fix --dry-run --diff",
+    "cs:fix": "php-cs-fixer fix"
+  }
+}

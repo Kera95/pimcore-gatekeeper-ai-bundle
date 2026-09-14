@@ -1,0 +1,9 @@
+# The SecurityBundle must be configured; the suite never authenticates anybody.
+security:
+    providers:
+        nobody:
+            memory: ~
+    firewalls:
+        main:
+            lazy: true
+            provider: nobody

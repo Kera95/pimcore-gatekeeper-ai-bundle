@@ -1,0 +1,77 @@
+# Configuration of the throwaway project the functional suite boots. The classes referenced under
+# tsf_gatekeeper and tsf_gatekeeper_ai are created by
+# Tsf\GatekeeperAiBundle\Tests\Support\Fixture\ClassFixtures.
+parameters:
+    secret: tsf-gatekeeper-ai-functional-tests
+    env(PIMCORE_TEST_DB_DSN): ~
+
+framework:
+    cache:
+        pools:
+            pimcore.cache.pool:
+                public: true
+                tags: true
+                default_lifetime: 31536000
+                adapter: cache.adapter.array
+
+doctrine:
+    dbal:
+        connections:
+            default:
+                url: '%env(PIMCORE_TEST_DB_DSN)%'
+                host: ~
+                port: ~
+                dbname: ~
+                user: ~
+                password: ~
+                mapping_types:
+                    bit: boolean
+
+pimcore:
+    config_location:
+        image_thumbnails: { write_target: { type: settings-store } }
+        video_thumbnails: { write_target: { type: settings-store } }
+        document_types: { write_target: { type: settings-store } }
+        predefined_properties: { write_target: { type: settings-store } }
+        predefined_asset_metadata: { write_target: { type: settings-store } }
+        perspectives: { write_target: { type: settings-store } }
+        custom_views: { write_target: { type: settings-store } }
+        object_custom_layouts: { write_target: { type: settings-store } }
+        select_options: { write_target: { type: settings-store } }
+        system_settings:
+            write_target: { type: settings-store }
+            read_target: { type: settings-store }
+
+tsf_gatekeeper:
+    classes:
+        GkProduct:
+            required: [sku, name, title, description]
+            languages: [en, de]
+            gate: block
+            score_field: completeness
+        GkCategory:
+            required: [name, title]
+            languages: [en]
+            gate: warn
+    report:
+        studio: false
+
+tsf_gatekeeper_ai:
+    anthropic:
+        api_key: 'test-key-never-sent'
+    context:
+        asset_folder: /gatekeeper/context
+    classes:
+        GkProduct:
+            # sku is denied, weight is numeric, seo_title is not required: validate reports them
+            enrich: [title, description, sku, weight, seo_title]
+            languages: [en, de]
+        GkCategory:
+            enrich: [title]
+
+services:
+    # the store has no consumer in the container yet; keep it out of the compiler's inlining
+    # so the tests can fetch it through the test container
+    Tsf\GatekeeperAiBundle\Service\ProposalStore:
+        autowire: true
+        public: true

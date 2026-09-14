@@ -1,0 +1,9 @@
+# Boots a minimal Pimcore kernel (tests/Support/App) against a real database, installs the bundles
+# and creates the test classes. Needs PIMCORE_TEST_DB_DSN; the database is dropped and recreated.
+suite_namespace: Tsf\GatekeeperAiBundle\Tests\Functional
+modules:
+    enabled:
+        # must come first: prepares the constants and environment the Pimcore module boots with
+        - \Tsf\GatekeeperAiBundle\Tests\Support\Helper\GatekeeperAi
+        - \Pimcore\Tests\Support\Helper\Pimcore:
+              connect_db: true
