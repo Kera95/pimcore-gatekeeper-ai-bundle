@@ -22,10 +22,11 @@ use function is_scalar;
 /**
  * The object as the model sees it: every filled top-level and localized field that has a
  * textual reading, as "path: value" pairs in definition order. Localized values carry their
- * language ("title [en]"). Relations contribute the keys of the related elements; images,
- * files, tables, bricks and collections are left out. Values are capped so one object cannot
- * blow up the request. The Gatekeeper's own score field is left out: it says nothing about
- * the product.
+ * language ("title [en]"). Relations, images and files contribute the keys of the related
+ * elements; tables, bricks, collections and galleries are left out, and so are password fields
+ * (their hash must never leave the system). Values are capped so one object cannot blow up
+ * the request. The Gatekeeper's own score field is left out: it says nothing about the
+ * product.
  */
 final class ObjectSnapshot
 {
@@ -93,7 +94,7 @@ final class ObjectSnapshot
      */
     private function render(Data $definition, mixed $value): ?string
     {
-        if ($value === null || $this->emptiness->isEmpty($definition, $value)) {
+        if ($value === null || $definition instanceof Data\Password || $this->emptiness->isEmpty($definition, $value)) {
             return null;
         }
 

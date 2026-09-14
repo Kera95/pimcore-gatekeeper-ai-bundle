@@ -83,7 +83,6 @@ final class ProposeRunner
 
                     break 2;
                 }
-                $processed[$objectId] = true;
 
                 $object = $this->load($objectId);
                 if ($object === null) {
@@ -97,12 +96,15 @@ final class ProposeRunner
                 $request = $this->prompts->request($prefix, $message, $specs);
                 $sourceHash = hash('sha256', $message);
 
-                if (!$force && $this->isFresh($objectId, $group->getLanguage(), $specs, $sourceHash, $context->getHash())) {
+                if (!$force && $this->isFresh($objectId, $group->getLanguage(), $specs, $sourceHash, $context->getHash(), $request->getPrefixHash())) {
                     $summary->addSkippedFresh();
                     $report('object', sprintf('%s %d %s: skipped, proposals for the same input exist', $group->getLabel(), $objectId, $object->getKey()));
 
                     continue;
                 }
+                // only objects that are actually sent count towards max_objects_per_run, so a
+                // re-run after a ceiling stop walks past the ones that already have proposals
+                $processed[$objectId] = true;
 
                 try {
                     $response = $provider->generate($request);
@@ -201,7 +203,8 @@ final class ProposeRunner
 
     /**
      * What the plan would cost without sending anything: the prefix once as a cache write and
-     * then as reads, the object message at full price, the output at the configured average.
+     * then as reads (at full price on every request when prompt caching is off), the object
+     * message at full price, the output at the configured average.
      *
      * @return array{groups: array<int, array{label: string, objects: int, fields: int, prefix_tokens: int, input_tokens: int, output_tokens: int, cost: float}>, objects: int, requests: int, fields: int, cost: float}
      */
@@ -210,6 +213,7 @@ final class ProposeRunner
         $rows = [];
         $total = 0.0;
         $perField = $this->settings->getAvgOutputTokensPerField();
+        $caching = $this->settings->getAnthropic()['prompt_caching'];
 
         foreach ($plan->getGroups() as $group) {
             $class = $this->settings->getClass($group->getClassName()) ?? new ClassSettings($group->getClassName(), [], [], '');
@@ -225,7 +229,10 @@ final class ProposeRunner
             $output = $group->getFieldCount() * $perField;
             $objects = $group->getObjectCount();
 
-            $usage = new Usage($input, $output, $objects > 1 ? $prefixTokens * ($objects - 1) : 0, $objects > 0 ? $prefixTokens : 0);
+            // with caching off the prefix is read at full price on every request
+            $usage = $caching
+                ? new Usage($input, $output, $objects > 1 ? $prefixTokens * ($objects - 1) : 0, $objects > 0 ? $prefixTokens : 0)
+                : new Usage($input + $prefixTokens * $objects, $output);
             $cost = $this->pricing->cost($usage);
             $total += $cost;
             $rows[] = [
@@ -248,11 +255,13 @@ final class ProposeRunner
     }
 
     /**
-     * True when every requested field already has a proposal built from exactly this input
+     * True when every requested field already has a proposal built from exactly this input:
+     * the same object message, knowledge base, prompt prefix (instructions, class instructions,
+     * field descriptions) and prompt version
      *
      * @param FieldSpec[] $specs
      */
-    private function isFresh(int $objectId, string $language, array $specs, string $sourceHash, string $kbHash): bool
+    private function isFresh(int $objectId, string $language, array $specs, string $sourceHash, string $kbHash, string $prefixHash): bool
     {
         $existing = [];
         foreach ($this->store->find(null, null, $objectId, $language) as $proposal) {
@@ -264,6 +273,7 @@ final class ProposeRunner
             if ($proposal === null
                 || $proposal->getSourceHash() !== $sourceHash
                 || $proposal->getKbHash() !== $kbHash
+                || $proposal->getPrefixHash() !== $prefixHash
                 || $proposal->getPromptVersion() !== PromptBuilder::PROMPT_VERSION) {
                 return false;
             }
