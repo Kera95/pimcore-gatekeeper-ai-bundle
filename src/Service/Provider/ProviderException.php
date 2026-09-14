@@ -49,7 +49,8 @@ final class ProviderException extends \RuntimeException
             $status,
             $requestId !== null ? (string) $requestId : null,
             self::statusIsRetryable($status),
-            self::statusIsFatal($status),
+            // a 400 for one oversized object ("prompt is too long") is that object's problem, not the run's
+            self::statusIsFatal($status) && !($status === 400 && stripos($vendorMessage, 'too long') !== false),
             $retryAfter
         );
     }

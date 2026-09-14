@@ -49,6 +49,19 @@ All notable changes to this bundle are documented here. The format follows
 - `tsf:gatekeeper:ai:validate --live`: sends a request shaped like the first one of a run to the
   token counting endpoint (free, generates nothing) and reports key / model / exact prefix size /
   whether the prefix is above the cache floor, or the mapped API error.
+- `tsf:gatekeeper:ai:propose [-c Class] [-p gate-profile] [-l language] [-f fields] [--limit N]
+  [--estimate] [--dry-run] [--force]`: reads the Gatekeeper's failing rows, plans one group per
+  (class, language) with only the `enrich` fields the policy allows, one request per object
+  with the object's filled fields as context and a schema of exactly the missing fields, and
+  stores every answer as a `pending` or `invalid` proposal. Skips objects that already have
+  proposals for the same input / knowledge base / prompt version, stops at
+  `max_objects_per_run` and `max_cost_per_run` and on fatal API errors, skips objects on
+  refusals, truncation and retryable failures. `--estimate` prices the plan without sending,
+  `--dry-run` runs it on the fake provider without storing. Run summary with tokens
+  (in / cache read / cache write / out) and cost, also in the log.
+- `ObjectSnapshot`: the object as the model sees it - filled top-level and localized fields with
+  a textual reading, relations by key, capped per value, the score field left out.
+- A 400 "prompt is too long" is no longer fatal for the run; the object is skipped.
 - `tsf:gatekeeper:ai:validate`: checks the API key is set, the model has a price, the knowledge
   base folder exists and has files, and every enriched class has a Gatekeeper rule whose fields exist, may be
   proposed and are actually required.

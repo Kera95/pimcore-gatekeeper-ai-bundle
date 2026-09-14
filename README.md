@@ -6,10 +6,8 @@ values for the fields your gate reports missing, per language, from a Markdown k
 the asset tree. Proposals are stored in a table, reviewed and applied by console command, never
 written blind. Anthropic Claude, prompt caching, cost ceiling, MIT.
 
-> **Status: in development.** Skeleton, proposal table, knowledge base, field layer, the
-> Anthropic provider and the `validate` / `context` commands are in place; the propose / review /
-> apply commands follow. Until then only `validate --live` talks to the API (token counting, no
-> generation).
+> **Status: in development.** `validate`, `context` and `propose` work end to end; the review /
+> approve / apply commands follow. Proposals are only ever written to the proposal table.
 
 ## How it fits together
 
@@ -190,6 +188,42 @@ Reports the files, characters, estimated tokens (chars / 4), the hash, and wheth
 above the model's prompt-cache floor (512 tokens for Claude Opus 5, 1024 for Sonnet 5, 4096 for
 Haiku 4.5) and below `context.max_tokens`. Exit code 1 when the folder is missing, empty or over
 the ceiling.
+
+## Proposing
+
+```bash
+bin/console tsf:gatekeeper:ai:propose --estimate                 # what would it cost
+bin/console tsf:gatekeeper:ai:propose --dry-run -c Product -vv   # whole pipeline, fake provider, nothing stored
+bin/console tsf:gatekeeper:ai:propose -c Product --limit 20      # the real thing
+```
+
+`propose` never scans objects: it reads the Gatekeeper's failing rows and asks only for the
+fields that are missing, listed under `enrich`, of a supported type and in a configured
+language. The plan is printed first — one group per class and language, the objects and field
+values it holds, and what was left out and why — then one request per (object, language) goes
+out with the object's filled fields as context and a schema of exactly the missing fields.
+Every value is validated and stored as `pending` or `invalid`.
+
+| Option | Effect |
+| --- | --- |
+| `-c`, `--class` | Only this class. |
+| `-p`, `--gate-profile` | Only fields reported by this Gatekeeper profile. |
+| `-l`, `--language` | Only this language. |
+| `-f`, `--fields` | Only these field paths, comma separated. |
+| `--limit N` | At most N objects, in the order the Gatekeeper reports them. |
+| `--estimate` | Price the plan (prefix once as a cache write, then reads; chars / 4; `avg_output_tokens_per_field`) and exit. |
+| `--dry-run` | Run everything on the fake provider; nothing sent, nothing stored. |
+| `--force` | Ask again for objects that already have proposals for the same input, knowledge base and prompt version. Without it those objects are skipped, so an interrupted run can simply be started again. |
+
+Hard stops, checked before every request: `limits.max_objects_per_run`, `limits.max_cost_per_run`
+(from the reported usage), and any fatal API error. A refusal, a truncated answer or a failure
+that survived the retries skips the object and the run goes on. `-v` prints one line per object
+with its tokens and cost, `-vv` one per field. The summary — requests, proposals by outcome,
+tokens in / cache read / cache write / out, cost — is printed and logged.
+
+A proposal remembers `source_hash` (the object as it was sent), `kb_hash`, `prefix_hash` and
+`prompt_version`; a re-run replaces `pending`, `invalid` and `stale` rows and never touches
+`approved`, `rejected`, `applied` or `blocked_by_gate` ones.
 
 ## What the model is told about a field
 

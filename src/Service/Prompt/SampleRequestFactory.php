@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace Tsf\GatekeeperAiBundle\Service\Prompt;
 
-use Pimcore\Model\DataObject\ClassDefinition;
 use Tsf\GatekeeperAiBundle\Model\ClassSettings;
 use Tsf\GatekeeperAiBundle\Model\EnrichmentRequest;
-use Tsf\GatekeeperAiBundle\Model\FieldSpec;
 use Tsf\GatekeeperAiBundle\Service\Config\Settings;
 use Tsf\GatekeeperAiBundle\Service\Context\KnowledgeBase;
-use Tsf\GatekeeperAiBundle\Service\Field\FieldPolicy;
-use Tsf\GatekeeperAiBundle\Service\Field\FieldSpecFactory;
+use Tsf\GatekeeperAiBundle\Service\Propose\RunPlanner;
 use Tsf\GatekeeperBundle\Service\LanguageProvider;
 
 use function count;
@@ -26,8 +23,7 @@ final class SampleRequestFactory
     public function __construct(
         private readonly Settings $settings,
         private readonly KnowledgeBase $knowledgeBase,
-        private readonly FieldSpecFactory $specs,
-        private readonly FieldPolicy $policy,
+        private readonly RunPlanner $planner,
         private readonly PromptBuilder $prompts,
         private readonly LanguageProvider $languages,
     ) {
@@ -38,7 +34,7 @@ final class SampleRequestFactory
         $class = $this->firstClass();
         $className = $class?->getClassName() ?? 'Object';
         $language = $this->language($class);
-        $specs = $class === null ? [] : $this->enrichableSpecs($class);
+        $specs = $class === null ? [] : array_values($this->planner->enrichableSpecs($class));
 
         $prefix = $this->prompts->prefix(
             $class ?? new ClassSettings($className, [], [], ''),
@@ -68,34 +64,5 @@ final class SampleRequestFactory
         }
 
         return $languages[0] ?? '';
-    }
-
-    /**
-     * @return FieldSpec[]
-     */
-    private function enrichableSpecs(ClassSettings $class): array
-    {
-        try {
-            $definition = ClassDefinition::getByName($class->getClassName());
-        } catch (\Throwable) {
-            $definition = null;
-        }
-        if ($definition === null) {
-            return [];
-        }
-
-        $specs = [];
-        foreach ($class->getEnrich() as $path) {
-            $data = $this->specs->definition($definition, $path);
-            if ($data === null || $this->policy->describeProblem($path, $data) !== null) {
-                continue;
-            }
-            $spec = $this->specs->create($definition, $path);
-            if ($spec !== null) {
-                $specs[] = $spec;
-            }
-        }
-
-        return $specs;
     }
 }
