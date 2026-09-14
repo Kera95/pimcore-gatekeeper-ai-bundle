@@ -6,9 +6,9 @@ values for the fields your gate reports missing, per language, from a Markdown k
 the asset tree. Proposals are stored in a table, reviewed and applied by console command, never
 written blind. Anthropic Claude, prompt caching, cost ceiling, MIT.
 
-> **Status: in development.** The skeleton, the proposal table and `tsf:gatekeeper:ai:validate`
-> are in place; the knowledge base, the provider and the propose / review / apply commands follow.
-> Nothing leaves the system yet.
+> **Status: in development.** The skeleton, the proposal table, the knowledge base and the
+> `validate` / `context` commands are in place; the provider and the propose / review / apply
+> commands follow. Nothing leaves the system yet.
 
 ## How it fits together
 
@@ -115,6 +115,38 @@ the class, may be proposed (type and deny list) and is actually required by the 
 that is never reported missing is never proposed, so that is a warning. Globally it checks that
 the API key is set, the model has a price and the knowledge base folder exists. Exit code 1 when
 anything blocks a run.
+
+## The knowledge base
+
+The quality of the output is the quality of this folder. Put Markdown files into the asset
+folder `context.asset_folder` (default `/gatekeeper/context`): who the company is, tone of voice,
+terminology per language, what each field is for, what buyers of each category care about,
+examples of good copy, things never to write. No retrieval, no embeddings — the whole folder goes
+into every request as a cached prompt prefix, so keep it focused (a few thousand tokens is a
+good size; `context.max_tokens` caps it).
+
+Layout, by folder convention only:
+
+```
+/gatekeeper/context/
+    tone.md                 <- files directly in the folder: always read
+    _global/company.md      <- _global/: always read
+    Product/writing-rules.md   <- <ClassName>/: read for that class only
+    Category/writing-rules.md
+```
+
+One level deep; other subfolders are ignored. Files are concatenated in path order, each under
+a `## <path>` heading, so the same files always produce the same text and the same `kb_hash`.
+
+```bash
+bin/console tsf:gatekeeper:ai:context                 # prints the assembled text + numbers
+bin/console tsf:gatekeeper:ai:context --class=Product --summary
+```
+
+Reports the files, characters, estimated tokens (chars / 4), the hash, and whether the size is
+above the model's prompt-cache floor (512 tokens for Claude Opus 5, 1024 for Sonnet 5, 4096 for
+Haiku 4.5) and below `context.max_tokens`. Exit code 1 when the folder is missing, empty or over
+the ceiling.
 
 ## The proposal table
 
