@@ -48,10 +48,12 @@ final class KnowledgeBaseTest extends Unit
         $kb = $this->knowledgeBase([]);
 
         $kb->assemble();
-        self::assertSame([['/gatekeeper/context/', '/gatekeeper/context/_global/']], $kb->requested);
-
         $kb->assemble('Product');
-        self::assertSame(['/gatekeeper/context/', '/gatekeeper/context/_global/', '/gatekeeper/context/Product/'], $kb->requested[1]);
+
+        self::assertSame([
+            ['/gatekeeper/context/', '/gatekeeper/context/_global/'],
+            ['/gatekeeper/context/', '/gatekeeper/context/_global/', '/gatekeeper/context/Product/'],
+        ], $kb->requested);
     }
 
     public function testNoFilesIsAnEmptyContext(): void
@@ -68,28 +70,34 @@ final class KnowledgeBaseTest extends Unit
     /**
      * @param array<string, string> $files
      */
-    private function knowledgeBase(array $files): KnowledgeBase
+    private function knowledgeBase(array $files): RecordingKnowledgeBase
     {
         $settings = new Settings((new Processor())->processConfiguration(new Configuration(), [[]]));
 
-        return new class ($settings, new TokenEstimator(), $files) extends KnowledgeBase {
-            /** @var array<int, string[]> */
-            public array $requested = [];
+        return new RecordingKnowledgeBase($settings, new TokenEstimator(), $files);
+    }
+}
 
-            /**
-             * @param array<string, string> $files
-             */
-            public function __construct(Settings $settings, TokenEstimator $estimator, private readonly array $files)
-            {
-                parent::__construct($settings, $estimator);
-            }
+/**
+ * Serves the given files instead of reading assets and records which folders were asked for
+ */
+final class RecordingKnowledgeBase extends KnowledgeBase
+{
+    /** @var array<int, string[]> */
+    public array $requested = [];
 
-            protected function readFiles(array $folders): array
-            {
-                $this->requested[] = $folders;
+    /**
+     * @param array<string, string> $files
+     */
+    public function __construct(Settings $settings, TokenEstimator $estimator, private readonly array $files)
+    {
+        parent::__construct($settings, $estimator);
+    }
 
-                return $this->files;
-            }
-        };
+    protected function readFiles(array $folders): array
+    {
+        $this->requested[] = $folders;
+
+        return $this->files;
     }
 }
