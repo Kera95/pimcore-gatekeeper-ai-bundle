@@ -39,7 +39,7 @@ final class ContextCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $className = $input->getOption('class');
+        $className = $input->getOption('class') ?: null;
         $folder = $this->settings->getContextFolder();
 
         if (!$this->knowledgeBase->folderExists()) {
@@ -63,7 +63,7 @@ final class ContextCommand extends Command
         }
 
         if (!$input->getOption('summary')) {
-            $output->write($context->getText());
+            $output->write($context->getText(), false, OutputInterface::OUTPUT_RAW);
             $io->newLine();
         }
 
