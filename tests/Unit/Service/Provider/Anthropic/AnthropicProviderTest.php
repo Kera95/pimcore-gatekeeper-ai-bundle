@@ -184,6 +184,40 @@ final class AnthropicProviderTest extends Unit
         self::assertSame([2], $this->pauses);
     }
 
+    /**
+     * A request and response recorded against the live API on 2026-09-14 (tests/Support/Data/anthropic)
+     */
+    public function testParsesARecordedResponseAndSendsTheRecordedShape(): void
+    {
+        $dir = dirname(__DIR__, 4) . '/Support/Data/anthropic/';
+        $recorded = json_decode((string) file_get_contents($dir . 'messages.response.json'), true);
+        $recordedRequest = json_decode((string) file_get_contents($dir . 'messages.request.json'), true);
+        self::assertIsArray($recorded);
+        self::assertIsArray($recordedRequest);
+
+        $provider = $this->provider([], [new MockResponse(json_encode($recorded['body']) ?: '', ['http_code' => $recorded['status'], 'response_headers' => ['request-id' => $recorded['headers']['request-id'][0]]])]);
+        $response = $provider->generate($this->request());
+
+        self::assertTrue($response->isUsable());
+        self::assertSame(['title', 'short_description', 'long_description', 'seo_title'], array_keys($response->getValues()));
+        self::assertSame(49, $response->getUsage()->getInputTokens());
+        self::assertSame(5222, $response->getUsage()->getCacheReadTokens());
+        self::assertSame(107, $response->getUsage()->getOutputTokens());
+        self::assertSame('req_011Cf41tPd6FxKBERm584fbg', $response->getRequestId());
+        self::assertStringStartsWith('claude-opus-5', $response->getModel());
+
+        // the payload the bundle sends has the recorded shape: three system blocks, one breakpoint, json_schema output
+        $sent = json_decode((string) $this->sent[0]['options']['body'], true);
+        self::assertIsArray($sent);
+        self::assertSame(array_keys($recordedRequest), array_keys($sent));
+        self::assertCount(3, $recordedRequest['system']);
+        self::assertArrayHasKey('cache_control', $recordedRequest['system'][2]);
+        self::assertArrayNotHasKey('cache_control', $recordedRequest['system'][1]);
+        self::assertSame('json_schema', $recordedRequest['output_config']['format']['type']);
+        self::assertFalse($recordedRequest['output_config']['format']['schema']['additionalProperties']);
+        self::assertStringNotContainsString('sk-ant', (string) file_get_contents($dir . 'messages.request.json'));
+    }
+
     public function testCountTokens(): void
     {
         $provider = $this->provider([], [new MockResponse('{"input_tokens": 2731}')]);

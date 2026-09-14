@@ -3,7 +3,8 @@
 # reports missing are ever proposed.
 
 tsf_gatekeeper_ai:
-    # The LLM provider. Only "anthropic" ships with this version.
+    # The LLM provider: "anthropic", or "fake" for tests and dry runs (deterministic stand-in
+    # values, no network, no cost). --dry-run uses the fake provider whatever is set here.
     provider: anthropic
 
     anthropic:

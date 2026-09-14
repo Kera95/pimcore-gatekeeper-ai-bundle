@@ -6,7 +6,20 @@ All notable changes to this bundle are documented here. The format follows
 
 ## [Unreleased]
 
+First release of the AI layer, for Pimcore 11.x, 12.x and 2026.x on PHP 8.1 to 8.5, on top of
+`kerimkaralic/pimcore-gatekeeper-bundle` ^1.1.
+
 ### Added
+
+- `DataObjectListener`: deleting an object deletes its proposals.
+- One JSON schema per (class, language) group instead of per object: the schema is part of what
+  the API caches, so per-object subsets broke the cache on every field-set change (seen live:
+  a cache write instead of a read). Fields not named under "Produce" come back empty and are
+  ignored; prompt version 2.
+- `propose --estimate` counts the prefix exactly through the token counting endpoint (free)
+  when the key works, chars / 4 otherwise; the summary says which.
+- A request/response pair recorded against the live API (`tests/Support/Data/anthropic`) drives
+  a provider test.
 
 - Bundle skeleton: `TsfGatekeeperAiBundle`, configuration tree `tsf_gatekeeper_ai` (provider,
   Anthropic settings, pricing, knowledge base folder, run limits, field deny list, per-class
