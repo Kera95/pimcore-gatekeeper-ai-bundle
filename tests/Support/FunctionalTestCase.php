@@ -138,6 +138,8 @@ abstract class FunctionalTestCase extends TestCase
      */
     protected function runCommand(string $name, array $input = []): CommandTester
     {
+        // SymfonyStyle wraps blocks at the terminal width; keep messages on one line for assertions
+        putenv('COLUMNS=400');
         $application = new Application(Pimcore::getKernel());
         $application->setAutoExit(false);
 

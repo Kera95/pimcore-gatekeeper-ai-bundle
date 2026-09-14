@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tsf\GatekeeperAiBundle\Service\Config;
 
-use Pimcore\Model\Asset;
 use Pimcore\Model\DataObject\ClassDefinition;
 use Tsf\GatekeeperAiBundle\Model\ClassSettings;
+use Tsf\GatekeeperAiBundle\Service\Context\KnowledgeBase;
 use Tsf\GatekeeperAiBundle\Service\Field\FieldPolicy;
 use Tsf\GatekeeperBundle\Service\Config\RuleSet;
 use Tsf\GatekeeperBundle\Service\FieldReader;
@@ -29,6 +29,7 @@ class SettingsValidator
         private readonly FieldReader $fieldReader,
         private readonly FieldPolicy $policy,
         private readonly LanguageProvider $languages,
+        private readonly KnowledgeBase $knowledgeBase,
     ) {
     }
 
@@ -52,8 +53,10 @@ class SettingsValidator
         }
 
         $folder = $this->settings->getContextFolder();
-        if (!$this->loadFolder($folder) instanceof Asset\Folder) {
+        if (!$this->knowledgeBase->folderExists()) {
             $warnings[] = sprintf('Knowledge base folder "%s" does not exist in the asset tree; the model gets no knowledge base until it does.', $folder);
+        } elseif ($this->knowledgeBase->assemble()->isEmpty()) {
+            $warnings[] = sprintf('Knowledge base folder "%s" has no .md files (directly in it or in %s/); the model gets no knowledge base until it does.', $folder, KnowledgeBase::GLOBAL_FOLDER);
         }
 
         return ['problems' => $problems, 'warnings' => $warnings];
@@ -118,15 +121,6 @@ class SettingsValidator
     {
         try {
             return ClassDefinition::getByName($name);
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    protected function loadFolder(string $path): ?Asset
-    {
-        try {
-            return Asset::getByPath($path);
         } catch (\Throwable) {
             return null;
         }

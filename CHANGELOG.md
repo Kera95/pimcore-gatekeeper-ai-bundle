@@ -16,6 +16,12 @@ All notable changes to this bundle are documented here. The format follows
   `approved`, `rejected`, `applied` or `blocked_by_gate` ones.
 - `FieldPolicy`: only `input`, `textarea`, `wysiwyg`, `select` and `multiselect` fields can be
   proposed, never a field on the deny list.
+- `KnowledgeBase`: assembles the Markdown assets of `context.asset_folder` (root and `_global/`
+  always, `<ClassName>/` per class) in path order under `## <path>` headings into one text with a
+  sha256 hash; `TokenEstimator` (chars / 4) and the per-model prompt-cache floors.
+- `tsf:gatekeeper:ai:context [--class] [--summary]`: prints the assembled knowledge base, its
+  files, characters, estimated tokens and hash, warns below the cache floor, fails above
+  `context.max_tokens`.
 - `tsf:gatekeeper:ai:validate`: checks the API key is set, the model has a price, the knowledge
-  base folder exists, and every enriched class has a Gatekeeper rule whose fields exist, may be
+  base folder exists and has files, and every enriched class has a Gatekeeper rule whose fields exist, may be
   proposed and are actually required.

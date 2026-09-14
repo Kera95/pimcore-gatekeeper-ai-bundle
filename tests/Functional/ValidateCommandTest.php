@@ -10,7 +10,9 @@ use Tsf\GatekeeperAiBundle\DependencyInjection\Configuration;
 use Tsf\GatekeeperAiBundle\Model\ClassSettings;
 use Tsf\GatekeeperAiBundle\Service\Config\Settings;
 use Tsf\GatekeeperAiBundle\Service\Config\SettingsValidator;
+use Tsf\GatekeeperAiBundle\Service\Context\KnowledgeBase;
 use Tsf\GatekeeperAiBundle\Service\Field\FieldPolicy;
+use Tsf\GatekeeperAiBundle\Service\TokenEstimator;
 use Tsf\GatekeeperAiBundle\Tests\Support\Fixture\ClassFixtures;
 use Tsf\GatekeeperAiBundle\Tests\Support\FunctionalTestCase;
 use Tsf\GatekeeperBundle\Service\Config\RuleSet;
@@ -48,9 +50,16 @@ final class ValidateCommandTest extends FunctionalTestCase
 
         $folder = Asset\Service::createFolderByPath('/gatekeeper/context');
         try {
+            self::assertSame(['problems' => [], 'warnings' => ['Knowledge base folder "/gatekeeper/context" has no .md files (directly in it or in _global/); the model gets no knowledge base until it does.']], $validator->validateGlobal());
+
+            $asset = new Asset();
+            $asset->setParent($folder);
+            $asset->setFilename('tone.md');
+            $asset->setData('Friendly.');
+            $asset->save();
             self::assertSame(['problems' => [], 'warnings' => []], $validator->validateGlobal());
         } finally {
-            $folder->delete();
+            Asset::getByPath('/gatekeeper')?->delete();
         }
 
         self::assertSame(
@@ -102,6 +111,6 @@ final class ValidateCommandTest extends FunctionalTestCase
         /** @var LanguageProvider $languages */
         $languages = $this->service(LanguageProvider::class);
 
-        return new SettingsValidator($settings, $rules, $fieldReader, new FieldPolicy($settings), $languages);
+        return new SettingsValidator($settings, $rules, $fieldReader, new FieldPolicy($settings), $languages, new KnowledgeBase($settings, new TokenEstimator()));
     }
 }
