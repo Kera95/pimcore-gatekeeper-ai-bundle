@@ -9,6 +9,9 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Tsf\GatekeeperAiBundle\Service\Config\Settings;
+use Tsf\GatekeeperAiBundle\Service\Provider\Anthropic\AnthropicProvider;
+use Tsf\GatekeeperAiBundle\Service\Provider\EnrichmentProviderInterface;
+use Tsf\GatekeeperAiBundle\Service\Provider\FakeProvider;
 
 final class TsfGatekeeperAiExtension extends Extension
 {
@@ -23,5 +26,7 @@ final class TsfGatekeeperAiExtension extends Extension
 
         $container->getDefinition(Settings::class)
             ->setArgument('$config', $config);
+
+        $container->setAlias(EnrichmentProviderInterface::class, $config['provider'] === 'fake' ? FakeProvider::class : AnthropicProvider::class);
     }
 }

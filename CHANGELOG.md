@@ -22,6 +22,33 @@ All notable changes to this bundle are documented here. The format follows
 - `tsf:gatekeeper:ai:context [--class] [--summary]`: prints the assembled knowledge base, its
   files, characters, estimated tokens and hash, warns below the cache floor, fails above
   `context.max_tokens`.
+- Field layer, pure and unit-tested: `Model\FieldSpec` (the constraining parts of a Pimcore
+  definition: type, title, tooltip, localized, max length, options, max items),
+  `FieldSpecFactory` (class + path → spec via the core `FieldReader`), `FieldDescriber` (the
+  byte-stable prose block "Fields to produce (language: x)" for the prompt), `SchemaBuilder`
+  (closed JSON schema for structured output: strings, enums, arrays of enums — no length
+  constraints, the API rejects them) and `ProposalValidator` (trims, flattens inputs, strips
+  tags outside `<p> <ul> <ol> <li> <strong> <em> <br>` from wysiwyg and all tags from plain
+  text, checks length, select values by value or label, multiselect lists stored as JSON).
+- `FieldPolicy` also refuses select / multiselect fields without static options.
+- Provider layer: `EnrichmentProviderInterface` (`generate`, `countTokens`), `Model\EnrichmentRequest`
+  (prefix blocks + user message + schema, `getPrefixHash()`), `Model\EnrichmentResponse` (values,
+  usage, stop reason, refusal category, request id), `Model\Usage` (input, output, cache read,
+  cache write), `Pricing` (USD from the four token kinds at the configured rates).
+- `AnthropicProvider` over `symfony/http-client`: `system` blocks with one `cache_control`
+  breakpoint on the last block (`5m` or `1h`), `output_config.effort` and
+  `output_config.format: json_schema`, usage read back, `request-id` kept, retries with
+  `retry-after` or exponential backoff for 429 / 5xx / network errors, refusal and `max_tokens`
+  returned as unusable responses, everything else as a typed `ProviderException` (vendor type,
+  HTTP status, request id, retryable, fatal, and the thing to check - key, model, billing,
+  permissions, size). The API key is never logged.
+- `FakeProvider` (`provider: fake`): deterministic stand-in values from the schema, no network,
+  queueable responses for tests.
+- `PromptBuilder`: the cache-friendly layout - fixed instructions (`PROMPT_VERSION`), knowledge
+  base + class instructions, field descriptions per language - and the per-object user message.
+- `tsf:gatekeeper:ai:validate --live`: sends a request shaped like the first one of a run to the
+  token counting endpoint (free, generates nothing) and reports key / model / exact prefix size /
+  whether the prefix is above the cache floor, or the mapped API error.
 - `tsf:gatekeeper:ai:validate`: checks the API key is set, the model has a price, the knowledge
   base folder exists and has files, and every enriched class has a Gatekeeper rule whose fields exist, may be
   proposed and are actually required.

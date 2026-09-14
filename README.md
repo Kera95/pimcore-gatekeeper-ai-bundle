@@ -6,9 +6,10 @@ values for the fields your gate reports missing, per language, from a Markdown k
 the asset tree. Proposals are stored in a table, reviewed and applied by console command, never
 written blind. Anthropic Claude, prompt caching, cost ceiling, MIT.
 
-> **Status: in development.** The skeleton, the proposal table, the knowledge base and the
-> `validate` / `context` commands are in place; the provider and the propose / review / apply
-> commands follow. Nothing leaves the system yet.
+> **Status: in development.** Skeleton, proposal table, knowledge base, field layer, the
+> Anthropic provider and the `validate` / `context` commands are in place; the propose / review /
+> apply commands follow. Until then only `validate --live` talks to the API (token counting, no
+> generation).
 
 ## How it fits together
 
@@ -113,8 +114,50 @@ bin/console tsf:gatekeeper:ai:validate
 Reports, per class, whether the Gatekeeper rule exists, whether every `enrich` field exists on
 the class, may be proposed (type and deny list) and is actually required by the rule — a field
 that is never reported missing is never proposed, so that is a warning. Globally it checks that
-the API key is set, the model has a price and the knowledge base folder exists. Exit code 1 when
-anything blocks a run.
+the API key is set, the model has a price and the knowledge base folder exists and has files.
+Exit code 1 when anything blocks a run.
+
+```bash
+bin/console tsf:gatekeeper:ai:validate --live
+```
+
+Additionally sends a request shaped like the first one of a run to Anthropic's token counting
+endpoint — free, nothing is generated. Proves the key and the model work and prints the exact
+prefix size and whether it is above the model's cache floor. Run it once after configuring the
+key. On failure you get the mapped error, for example:
+
+```
+ERROR live check via anthropic (claude-opus-5)
+ * Anthropic API error authentication_error (HTTP 401): invalid x-api-key. The API key is
+   invalid, revoked or missing - check ANTHROPIC_API_KEY (tsf_gatekeeper_ai.anthropic.api_key).
+```
+
+## What happens on an API error
+
+Every request goes through one place that maps the outcome:
+
+| Outcome | What the bundle does |
+| --- | --- |
+| 401 / 402 / 403 / 404 / 400 | Fatal: the run stops (every further request would fail the same way). The console shows the vendor message and what to check; the same line is in the log. |
+| 413 request too large | The object is skipped; lower `context.max_tokens` or shorten the knowledge base. |
+| 429 / 5xx / network / timeout | Retried with `retry-after` or exponential backoff, `anthropic.max_retries` times; then the object is skipped and the run continues. |
+| 200 with `stop_reason: refusal` | The object is skipped, the category is logged. Usage is still counted. |
+| 200 with `stop_reason: max_tokens` | The object is skipped; raise `anthropic.max_tokens` or enrich fewer fields per class. |
+| 200 with a non-JSON body | The object is skipped, logged with the request id. |
+
+Logging uses the default Pimcore logger (Monolog, `var/log/<env>.log`), every line prefixed
+`Gatekeeper AI:`. `-vvv` logs the full request payload at debug level. **The API key is never
+logged or printed.**
+
+## Prompt caching
+
+Every request of one (class, language) group shares the same three system blocks — the fixed
+instructions, the knowledge base with the class instructions, the field descriptions — and only
+the user message (the object) differs. The cache breakpoint sits on the last system block, so
+the second object of a group reads the whole prefix from cache at a tenth of the input price.
+The `prefix_hash` stored with every proposal is the sha256 of exactly those bytes: two proposals
+with the same hash and no cache reads mean the cache expired between them, not that the prompt
+changed. `cache_ttl: 1h` keeps it warm through longer pauses at twice the write price.
 
 ## The knowledge base
 
@@ -147,6 +190,27 @@ Reports the files, characters, estimated tokens (chars / 4), the hash, and wheth
 above the model's prompt-cache floor (512 tokens for Claude Opus 5, 1024 for Sonnet 5, 4096 for
 Haiku 4.5) and below `context.max_tokens`. Exit code 1 when the folder is missing, empty or over
 the ceiling.
+
+## What the model is told about a field
+
+For every field in a request the bundle reads the Pimcore class definition and turns it into
+both a prose line in the prompt and a property in the JSON schema the response is forced into:
+
+```
+- title: "Title" — single-line text, no line breaks, at most 190 characters. Shown in listings.
+- long_description: "Long description" — HTML using only <p>, <ul>, <ol>, <li>, <strong>, <em>, <br>; …
+- product_type: "Product type" — exactly one of: "simple" (Simple), "configurable" (Configurable).
+- tags: "Tags" — a list of up to 3 values from: "new" (New), "sale" (Sale).
+```
+
+Title and tooltip come from the class definition — write them for a human and the model reads
+them too. The schema guarantees the shape (one string or list per field, enums for selects); the
+bundle then validates each value again before it becomes a proposal: trimmed, line breaks removed
+from inputs, HTML reduced to the allowed tags, length against the field, select values by value
+or label. A value that fails is stored with status `invalid` and the reason, never applied.
+
+Supported field types: `input`, `textarea`, `wysiwyg`, `select`, `multiselect` (static options
+only). Everything else, and every name on `fields.deny`, is skipped.
 
 ## The proposal table
 

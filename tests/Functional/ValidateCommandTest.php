@@ -21,24 +21,22 @@ use Tsf\GatekeeperBundle\Service\LanguageProvider;
 
 final class ValidateCommandTest extends FunctionalTestCase
 {
-    public function testReportsTheProblemsOfTheTestConfiguration(): void
+    public function testReportsTheWarningsOfTheTestConfiguration(): void
     {
         $tester = $this->runCommand('tsf:gatekeeper:ai:validate');
         $output = $tester->getDisplay();
 
-        self::assertSame(1, $tester->getStatusCode(), $output);
-        self::assertStringContainsString('provider anthropic, model claude-opus-5, knowledge base /gatekeeper/context', $output);
+        self::assertSame(0, $tester->getStatusCode(), $output);
+        self::assertStringContainsString('WARN  provider fake, model claude-opus-5, knowledge base /gatekeeper/context', $output);
         self::assertStringContainsString('Knowledge base folder "/gatekeeper/context" does not exist', $output);
         self::assertStringNotContainsString('No API key', $output);
         self::assertStringNotContainsString('test-key-never-sent', $output, 'the key is never printed');
 
-        self::assertStringContainsString('ERROR GkProduct (enrich: title, description, sku, weight, seo_title; languages: en, de)', $output);
-        self::assertStringContainsString('"sku" is on the deny list', $output);
-        self::assertStringContainsString('"weight" is of type numeric', $output);
+        self::assertStringContainsString('WARN  GkProduct (enrich: title, description, seo_title; languages: en, de)', $output);
         self::assertStringContainsString('warning: enrich: "seo_title" is not required by any profile', $output);
 
         self::assertStringContainsString('OK    GkCategory (enrich: title)', $output);
-        self::assertStringContainsString('1 check(s) failed', $output);
+        self::assertStringContainsString('The configuration is valid.', $output);
     }
 
     public function testAValidConfigurationPasses(): void

@@ -8,6 +8,7 @@ use Pimcore\Model\DataObject\ClassDefinition\Data;
 use Tsf\GatekeeperAiBundle\Service\Config\Settings;
 use Tsf\GatekeeperBundle\Service\FieldReader;
 
+use function count;
 use function in_array;
 use function sprintf;
 
@@ -43,6 +44,10 @@ final class FieldPolicy
         $type = $definition->getFieldType();
         if (!in_array($type, self::ALLOWED_TYPES, true)) {
             return sprintf('"%s" is of type %s; only %s can be proposed.', $fieldPath, $type, implode(', ', self::ALLOWED_TYPES));
+        }
+
+        if (($definition instanceof Data\Select || $definition instanceof Data\Multiselect) && count($definition->getOptions() ?? []) === 0) {
+            return sprintf('"%s" has no options in the class definition (an options provider is not supported); nothing to choose from.', $fieldPath);
         }
 
         return null;
