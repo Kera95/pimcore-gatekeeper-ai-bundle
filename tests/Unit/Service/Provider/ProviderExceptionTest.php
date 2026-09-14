@@ -51,6 +51,14 @@ final class ProviderExceptionTest extends Unit
         self::assertSame('req_body', $e->getRequestId(), 'the body id is the fallback when the header is missing');
     }
 
+    public function testAPromptTooLongIsNotFatal(): void
+    {
+        $e = ProviderException::fromHttp(400, ['error' => ['type' => 'invalid_request_error', 'message' => 'prompt is too long: 213000 tokens > 200000 maximum']]);
+
+        self::assertFalse($e->isFatal());
+        self::assertFalse($e->isRetryable());
+    }
+
     public function testTransportErrorsAreRetryableAndNotFatal(): void
     {
         $e = ProviderException::fromTransport(new \RuntimeException('Could not resolve host'));
