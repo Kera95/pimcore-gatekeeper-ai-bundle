@@ -92,9 +92,10 @@ final class ProposeRunner
                 }
 
                 $specs = $group->specsFor($objectId);
-                $message = $this->prompts->userMessage($group->getClassName(), $group->getLanguage(), $this->snapshot->filledFields($object), $specs);
+                $filled = $this->snapshot->filledFields($object);
+                $message = $this->prompts->userMessage($group->getClassName(), $group->getLanguage(), $filled, $specs);
                 $request = $this->prompts->request($prefix, $message, $specs);
-                $sourceHash = hash('sha256', $message);
+                $sourceHash = $this->snapshot->sourceHash($filled, $group->getLanguage());
 
                 if (!$force && $this->isFresh($objectId, $group->getLanguage(), $specs, $sourceHash, $context->getHash(), $request->getPrefixHash())) {
                     $summary->addSkippedFresh();

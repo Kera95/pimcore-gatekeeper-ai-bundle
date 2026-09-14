@@ -76,6 +76,27 @@ final class ObjectSnapshot
     }
 
     /**
+     * The source_hash of a proposal: what the model saw that matters for this language - the
+     * non-localized fields and the localized ones of that language. Applying proposals of
+     * another language therefore does not make this language's proposals stale; a person
+     * editing the object does.
+     *
+     * @param array<string, string> $filled the filledFields() of the object
+     */
+    public function sourceHash(array $filled, string $language): string
+    {
+        $relevant = [];
+        foreach ($filled as $key => $value) {
+            $bracket = strpos($key, ' [');
+            if ($bracket === false || ($language !== '' && substr($key, $bracket) === ' [' . $language . ']')) {
+                $relevant[$key] = $value;
+            }
+        }
+
+        return hash('sha256', json_encode($relevant, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '');
+    }
+
+    /**
      * The current raw value of one field as text, for the proposal's current_value column
      */
     public function currentValue(Concrete $object, string $path, string $language): ?string
