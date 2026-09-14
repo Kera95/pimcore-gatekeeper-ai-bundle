@@ -6,8 +6,8 @@ values for the fields your gate reports missing, per language, from a Markdown k
 the asset tree. Proposals are stored in a table, reviewed and applied by console command, never
 written blind. Anthropic Claude, prompt caching, cost ceiling, MIT.
 
-> **Status: in development.** `validate`, `context` and `propose` work end to end; the review /
-> approve / apply commands follow. Proposals are only ever written to the proposal table.
+> **Status: feature complete for 2.0, not yet released.** `validate`, `context`, `propose`,
+> `review`, `approve`, `reject` and `apply` work end to end.
 
 ## How it fits together
 
@@ -224,6 +224,46 @@ tokens in / cache read / cache write / out, cost — is printed and logged.
 A proposal remembers `source_hash` (the object as it was sent), `kb_hash`, `prefix_hash` and
 `prompt_version`; a re-run replaces `pending`, `invalid` and `stale` rows and never touches
 `approved`, `rejected`, `applied` or `blocked_by_gate` ones.
+
+## Reviewing and applying
+
+```bash
+bin/console tsf:gatekeeper:ai:review                       # pending rows as a table
+bin/console tsf:gatekeeper:ai:review -c Product -f csv > proposals.csv
+bin/console tsf:gatekeeper:ai:review -s invalid            # what the validator threw out, and why
+bin/console tsf:gatekeeper:ai:approve --id 12,13,14
+bin/console tsf:gatekeeper:ai:approve --all -c Product -l de
+bin/console tsf:gatekeeper:ai:reject --id 15
+bin/console tsf:gatekeeper:ai:apply --dry-run              # field by field, nothing saved
+bin/console tsf:gatekeeper:ai:apply -c Product
+```
+
+`review` lists rows (`-s pending` by default, `-s all` for everything) as a table, CSV or
+Markdown. `approve` and `reject` need `--id` or `--all` plus filters — never everything by
+accident; approve moves `pending` rows on, reject takes `pending` and `approved` rows out, and
+neither touches any other status.
+
+`apply` writes approved rows into their objects, **all fields of one object in one save**,
+through the generated setters, so Pimcore versioning applies and a rollback is possible. Before
+writing, every row is checked against the object as it is now:
+
+- the field is still empty (the core bundle's own emptiness rules) — otherwise `stale`,
+  "the field is no longer empty";
+- the object's input for that language is unchanged (`source_hash`: the non-localized fields
+  and the localized fields of that language, minus the enriched fields themselves) — otherwise
+  `stale`, "the object changed since the proposal was made". A person who edits what the model
+  worked from wins; applying the other language, or one enriched field before the next, does
+  not count as a change.
+
+The save skips the Gatekeeper's warn / block step — the object only gets more complete — but is
+still scored, and the command prints the score per profile and language before and after:
+
+```
+ * 21 40941: default/de 71% → 100%, default/en 100% → 100%, print/de 25% → 38%
+```
+
+The publish state is never changed. A save Pimcore refuses for another reason (a mandatory
+field, a unique constraint) marks the rows `blocked_by_gate` with the message and exits 1.
 
 ## What the model is told about a field
 

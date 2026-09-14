@@ -101,3 +101,9 @@ services:
     Tsf\GatekeeperAiBundle\Service\Propose\ObjectSnapshot:
         autowire: true
         public: true
+    Tsf\GatekeeperAiBundle\Service\Apply\ApplyRunner:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Review\ProposalDecider:
+        autowire: true
+        public: true

@@ -49,6 +49,23 @@ All notable changes to this bundle are documented here. The format follows
 - `tsf:gatekeeper:ai:validate --live`: sends a request shaped like the first one of a run to the
   token counting endpoint (free, generates nothing) and reports key / model / exact prefix size /
   whether the prefix is above the cache floor, or the mapped API error.
+- `tsf:gatekeeper:ai:review [-c] [-l] [-o object] [-s status|all] [-f table|csv|md] [--limit] [--full]`:
+  lists proposals; CSV and Markdown for spreadsheets and tickets.
+- `tsf:gatekeeper:ai:approve` / `tsf:gatekeeper:ai:reject` `--id 1,2,3` or `--all` with the
+  filters: approve moves pending rows on, reject takes pending and approved rows out; nothing
+  else is touched.
+- `tsf:gatekeeper:ai:apply [-c] [-l] [-o] [--id] [--limit] [--dry-run]`: writes approved rows
+  into their objects, all fields of one object in one save through the generated setters (so
+  versioning applies). A row is marked `stale` when its field is no longer empty or the object's
+  input for that language changed since the proposal; a save Pimcore refuses marks the rows
+  `blocked_by_gate`. The save skips the Gatekeeper's warn/block step (the object gets more
+  complete) but is still scored; the score per profile and language before and after is printed.
+  The publish state is never changed.
+- `source_hash` is now the hash of the object's non-localized fields plus the localized fields of
+  the proposal's language, minus the class's `enrich` fields: applying one language or one
+  enriched field does not make the other proposals stale; a person editing the input the model
+  worked from does (a person filling an enriched field is caught by the still-empty check).
+- `FieldPolicy` refuses paths inside object bricks and field collections.
 - `tsf:gatekeeper:ai:propose [-c Class] [-p gate-profile] [-l language] [-f fields] [--limit N]
   [--estimate] [--dry-run] [--force]`: reads the Gatekeeper's failing rows, plans one group per
   (class, language) with only the `enrich` fields the policy allows, one request per object

@@ -15,6 +15,7 @@ use Tsf\GatekeeperBundle\Service\FieldReader;
 use Tsf\GatekeeperBundle\Service\LanguageProvider;
 
 use function count;
+use function in_array;
 use function is_array;
 use function is_bool;
 use function is_scalar;
@@ -73,6 +74,34 @@ final class ObjectSnapshot
         }
 
         return $filled;
+    }
+
+    /**
+     * The source_hash of a proposal: what the model saw that matters for this language - the
+     * non-localized fields and the localized ones of that language - minus the fields being
+     * enriched. Applying proposals of another language, or applying one enriched field before
+     * the next, therefore does not make this language's proposals stale; a person editing the
+     * input the model worked from does (and a person filling an enriched field is caught by
+     * the still-empty check at apply time).
+     *
+     * @param array<string, string> $filled   the filledFields() of the object
+     * @param string[]              $excluded field paths left out of the hash, the class's enrich list
+     */
+    public function sourceHash(array $filled, string $language, array $excluded = []): string
+    {
+        $relevant = [];
+        foreach ($filled as $key => $value) {
+            $bracket = strpos($key, ' [');
+            $field = $bracket === false ? $key : substr($key, 0, $bracket);
+            if (in_array($field, $excluded, true)) {
+                continue;
+            }
+            if ($bracket === false || ($language !== '' && substr($key, $bracket) === ' [' . $language . ']')) {
+                $relevant[$key] = $value;
+            }
+        }
+
+        return hash('sha256', json_encode($relevant, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '');
     }
 
     /**

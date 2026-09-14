@@ -13,9 +13,9 @@ use function in_array;
 use function sprintf;
 
 /**
- * Which fields the model may write at all: text-like data types only, and never a field whose
- * name is on the deny list (identifiers, prices). Everything else is skipped, whatever the class
- * configuration says.
+ * Which fields the model may write at all: top-level and localized fields of text-like data
+ * types only, and never a field whose name is on the deny list (identifiers, prices).
+ * Everything else is skipped, whatever the class configuration says.
  */
 final class FieldPolicy
 {
@@ -31,11 +31,10 @@ final class FieldPolicy
      */
     public function describeProblem(string $fieldPath, Data $definition): ?string
     {
-        $name = $fieldPath;
         if (str_contains($fieldPath, FieldReader::PATH_SEPARATOR)) {
-            $parts = explode(FieldReader::PATH_SEPARATOR, $fieldPath);
-            $name = (string) end($parts);
+            return sprintf('"%s" is inside an object brick or field collection; only top-level and localized fields can be proposed.', $fieldPath);
         }
+        $name = $fieldPath;
 
         if (in_array(strtolower($name), $this->settings->getDenyFields(), true)) {
             return sprintf('"%s" is on the deny list (tsf_gatekeeper_ai.fields.deny).', $fieldPath);
