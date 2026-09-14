@@ -28,7 +28,7 @@ use function sprintf;
  */
 final class PromptBuilder
 {
-    public const PROMPT_VERSION = '1';
+    public const PROMPT_VERSION = '2';
 
     public function __construct(
         private readonly FieldDescriber $describer,
@@ -98,7 +98,7 @@ final class PromptBuilder
         3. Respect every field's type and limits. A value that does not fit is discarded.
         4. Do not repeat the same sentence across fields; each field has its own purpose, described below.
         5. No prices, stock, delivery promises or shop names inside product copy unless the field description asks for them.
-        6. Return only the JSON object, one value per requested field, nothing else.
+        6. Return only the JSON object. The schema lists every field of this group; fill the ones named under "Produce" and return an empty string (or an empty list) for the others.
 
         (prompt version {$this->version()})
         TEXT . "\n";

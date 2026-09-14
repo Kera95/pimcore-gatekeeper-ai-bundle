@@ -312,8 +312,10 @@ A propose re-run replaces `pending`, `invalid` and `stale` rows and never touche
 Every request carries the same prefix (instructions, knowledge base, field descriptions) and a
 small per-object tail, and Anthropic serves the prefix from cache at a tenth of the input price
 after the first object of a group. Rough numbers with the bundled test data (36 products, 6
-categories, a 2.5k-token knowledge base, Claude Opus 5): **98 requests ≈ $1.20**. `--estimate`
-prints the figure for your data before anything is sent.
+categories, a 2.5k-token knowledge base, Claude Opus 5): **98 requests ≈ $1.35**, a measured
+$0.026 per request for a product with three fields. `--estimate` prints the figure for your data
+before anything is sent — the prefix counted exactly by the API's free token-counting endpoint,
+the rest at chars / 4.
 
 Guards, all on by default:
 
@@ -362,9 +364,12 @@ logged or printed.**
 ## Prompt caching
 
 Every request of one (class, language) group shares the same three system blocks — the fixed
-instructions, the knowledge base with the class instructions, the field descriptions — and only
-the user message (the object) differs. The cache breakpoint sits on the last system block, so
-the second object of a group reads the whole prefix from cache at a tenth of the input price.
+instructions, the knowledge base with the class instructions, the field descriptions — and the
+same JSON schema (the schema counts towards the cached prefix too, which is why it is the
+group's, not the object's); only the user message (the object) differs. The cache breakpoint
+sits on the last system block, so the second object of a group reads the whole prefix from cache
+at a tenth of the input price. Measured on the test data: first request of a group 5,222 tokens
+written, every following one 5,222 read, ~125–200 uncached.
 The `prefix_hash` stored with every proposal is the sha256 of exactly those bytes: two proposals
 with the same hash and no cache reads mean the cache expired between them, not that the prompt
 changed. `cache_ttl: 1h` keeps it warm through longer pauses at twice the write price.

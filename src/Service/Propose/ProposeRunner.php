@@ -69,7 +69,8 @@ final class ProposeRunner
                 continue;
             }
             $context = $this->knowledgeBase->assemble($group->getClassName());
-            $prefix = $this->prompts->prefix($class, $context, array_values($group->getSpecs()), $group->getLanguage());
+            $groupSpecs = array_values($group->getSpecs());
+            $prefix = $this->prompts->prefix($class, $context, $groupSpecs, $group->getLanguage());
             $report('group', sprintf('%s: %d object(s), prefix hash %s, kb hash %s', $group->getLabel(), $group->getObjectCount(), hash('sha256', implode("\n\x00\n", $prefix)), $context->getHash()));
 
             foreach ($group->getTargets() as $objectId => $fields) {
@@ -94,7 +95,9 @@ final class ProposeRunner
                 $specs = $group->specsFor($objectId);
                 $filled = $this->snapshot->filledFields($object);
                 $message = $this->prompts->userMessage($group->getClassName(), $group->getLanguage(), $filled, $specs);
-                $request = $this->prompts->request($prefix, $message, $specs);
+                // the schema is part of what the API caches, so it is the group's, not the object's;
+                // fields not named under "Produce" come back empty and are ignored
+                $request = $this->prompts->request($prefix, $message, $groupSpecs);
                 $sourceHash = $this->snapshot->sourceHash($filled, $group->getLanguage(), $class->getEnrich());
 
                 if (!$force && $this->isFresh($objectId, $group->getLanguage(), $specs, $sourceHash, $context->getHash(), $request->getPrefixHash())) {
@@ -203,23 +206,37 @@ final class ProposeRunner
     }
 
     /**
-     * What the plan would cost without sending anything: the prefix once as a cache write and
+     * What the plan would cost without generating anything: the prefix once as a cache write and
      * then as reads (at full price on every request when prompt caching is off), the object
-     * message at full price, the output at the configured average.
+     * message at full price, the output at the configured average. With a provider the prefix
+     * is counted exactly through the token counting endpoint (free); without one, or when that
+     * fails, chars / 4.
      *
-     * @return array{groups: array<int, array{label: string, objects: int, fields: int, prefix_tokens: int, input_tokens: int, output_tokens: int, cost: float}>, objects: int, requests: int, fields: int, cost: float}
+     * @return array{groups: array<int, array{label: string, objects: int, fields: int, prefix_tokens: int, input_tokens: int, output_tokens: int, cost: float}>, objects: int, requests: int, fields: int, cost: float, counted: bool}
      */
-    public function estimate(RunPlan $plan): array
+    public function estimate(RunPlan $plan, ?EnrichmentProviderInterface $provider = null): array
     {
         $rows = [];
         $total = 0.0;
         $perField = $this->settings->getAvgOutputTokensPerField();
+        $counted = $provider !== null;
         $caching = $this->settings->getAnthropic()['prompt_caching'];
 
         foreach ($plan->getGroups() as $group) {
             $class = $this->settings->getClass($group->getClassName()) ?? new ClassSettings($group->getClassName(), [], [], '');
             $context = $this->knowledgeBase->assemble($group->getClassName());
-            $prefixTokens = $this->estimator->estimate(implode("\n\n", $this->prompts->prefix($class, $context, array_values($group->getSpecs()), $group->getLanguage())));
+            $groupSpecs = array_values($group->getSpecs());
+            $prefix = $this->prompts->prefix($class, $context, $groupSpecs, $group->getLanguage());
+            $prefixTokens = null;
+            if ($provider !== null) {
+                try {
+                    $prefixTokens = $provider->countTokens($this->prompts->request($prefix, '-', $groupSpecs));
+                } catch (ProviderException $e) {
+                    $this->logger->warning('Gatekeeper AI: token counting failed, estimating instead - ' . $e->getMessage());
+                    $counted = false;
+                }
+            }
+            $prefixTokens ??= $this->estimator->estimate(implode("\n\n", $prefix));
 
             $input = 0;
             foreach ($group->getTargets() as $objectId => $fields) {
@@ -247,7 +264,7 @@ final class ProposeRunner
             ];
         }
 
-        return ['groups' => $rows, 'objects' => $plan->getObjectCount(), 'requests' => $plan->getRequestCount(), 'fields' => $plan->getFieldCount(), 'cost' => $total];
+        return ['groups' => $rows, 'objects' => $plan->getObjectCount(), 'requests' => $plan->getRequestCount(), 'fields' => $plan->getFieldCount(), 'cost' => $total, 'counted' => $counted];
     }
 
     public function formatCost(float $cost): string

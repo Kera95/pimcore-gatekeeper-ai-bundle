@@ -100,8 +100,9 @@ final class ProposeCommandTest extends FunctionalTestCase
         $requests = $this->fake->getRequests();
         self::assertCount(2, $requests, 'one request per (object, language)');
         self::assertStringContainsString("Filled fields:\n- sku: SKU-1\n- name: Cable\n- title [en]: USB cable\n\nProduce: title, description\n", $requests[0]->getUserMessage());
-        self::assertSame(['title', 'description'], $requests[0]->getSchema()['required']);
-        self::assertSame(['description'], $requests[1]->getSchema()['required']);
+        self::assertSame(['title', 'description', 'seo_title'], $requests[0]->getSchema()['required'], 'the schema is the group\'s, so the cached prefix stays the same for every object');
+        self::assertSame($requests[0]->getSchema(), $requests[1]->getSchema());
+        self::assertStringContainsString("Produce: description\n", $requests[1]->getUserMessage());
         self::assertStringStartsWith("# Fields to produce (language: de)\n", $requests[0]->getPrefixBlocks()[2]);
     }
 
@@ -188,8 +189,11 @@ final class ProposeCommandTest extends FunctionalTestCase
         self::assertSame(0, $estimate->getStatusCode());
         self::assertStringContainsString('Estimate for claude-opus-5', $estimate->getDisplay());
         self::assertStringContainsString('Estimated total: $', $estimate->getDisplay());
-        self::assertCount(0, $this->fake->getRequests());
+        self::assertStringContainsString('prefix counted exactly by the API', $estimate->getDisplay());
+        self::assertCount(2, $this->fake->getRequests(), 'one token count per group, no generation');
+        self::assertSame([], $this->store->find());
 
+        $this->fake->reset();
         $dry = $this->runCommand('tsf:gatekeeper:ai:propose', ['--dry-run' => true]);
         self::assertSame(0, $dry->getStatusCode());
         self::assertStringContainsString('Dry run finished; nothing was stored.', $dry->getDisplay());

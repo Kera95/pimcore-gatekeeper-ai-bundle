@@ -72,7 +72,7 @@ final class ProposeCommand extends Command
         }
 
         if ($input->getOption('estimate')) {
-            return $this->estimate($io, $plan);
+            return $this->estimate($io, $plan, $this->provider);
         }
 
         $dryRun = (bool) $input->getOption('dry-run');
@@ -139,9 +139,9 @@ final class ProposeCommand extends Command
         }
     }
 
-    private function estimate(SymfonyStyle $io, RunPlan $plan): int
+    private function estimate(SymfonyStyle $io, RunPlan $plan, EnrichmentProviderInterface $provider): int
     {
-        $estimate = $this->runner->estimate($plan);
+        $estimate = $this->runner->estimate($plan, $provider);
 
         $io->section(sprintf('Estimate for %s', $this->settings->getModel()));
         $io->table(
@@ -157,7 +157,7 @@ final class ProposeCommand extends Command
             ], $estimate['groups'])
         );
         $io->text([
-            sprintf('Estimated total: %s for %d request(s) (chars / 4 for input, %d output tokens per field; the prefix is written once per group and read from cache afterwards).', $this->runner->formatCost($estimate['cost']), $estimate['requests'], $this->settings->getAvgOutputTokensPerField()),
+            sprintf('Estimated total: %s for %d request(s) (prefix %s, object messages chars / 4, %d output tokens per field; the prefix is written once per group and read from cache afterwards).', $this->runner->formatCost($estimate['cost']), $estimate['requests'], $estimate['counted'] ? 'counted exactly by the API' : 'estimated at chars / 4', $this->settings->getAvgOutputTokensPerField()),
             sprintf('Ceiling: %s per run (tsf_gatekeeper_ai.limits.max_cost_per_run).', $this->runner->formatCost($this->settings->getMaxCostPerRun())),
         ]);
 
