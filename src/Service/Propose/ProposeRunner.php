@@ -8,7 +8,6 @@ use Pimcore\Model\DataObject\Concrete;
 use Psr\Log\LoggerInterface;
 use Tsf\GatekeeperAiBundle\Model\ClassSettings;
 use Tsf\GatekeeperAiBundle\Model\FieldSpec;
-use Tsf\GatekeeperAiBundle\Model\PlanGroup;
 use Tsf\GatekeeperAiBundle\Model\Proposal;
 use Tsf\GatekeeperAiBundle\Model\RunPlan;
 use Tsf\GatekeeperAiBundle\Model\RunSummary;
