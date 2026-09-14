@@ -66,11 +66,16 @@ final class ApplyReport
         return count(array_filter($this->rows, static fn (array $row): bool => $row['outcome'] === $outcome));
     }
 
-    public function getObjectCount(): int
+    /**
+     * Distinct objects in the report, or only those with a row of the given outcome
+     */
+    public function getObjectCount(?string $outcome = null): int
     {
         $ids = [];
         foreach ($this->rows as $row) {
-            $ids[$row['proposal']->getObjectId()] = true;
+            if ($outcome === null || $row['outcome'] === $outcome) {
+                $ids[$row['proposal']->getObjectId()] = true;
+            }
         }
 
         return count($ids);

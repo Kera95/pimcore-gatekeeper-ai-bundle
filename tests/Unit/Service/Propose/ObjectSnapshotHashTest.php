@@ -30,4 +30,18 @@ final class ObjectSnapshotHashTest extends Unit
         self::assertSame($none, $snapshot->sourceHash(['sku' => 'A', 'name' => 'Cable'], ''), 'the non-localized group ignores every language');
         self::assertSame(64, strlen($de));
     }
+
+    public function testEnrichedFieldsAreLeftOutSoApplyingOneDoesNotStaleTheOthers(): void
+    {
+        $snapshot = new ObjectSnapshot(new FieldReader(), new EmptinessChecker([]), new LanguageProvider(), new RuleSet([]));
+        $enrich = ['title', 'description'];
+
+        $before = $snapshot->sourceHash(['sku' => 'A', 'name' => 'Cable'], 'de', $enrich);
+        $afterTitle = $snapshot->sourceHash(['sku' => 'A', 'name' => 'Cable', 'title [de]' => 'Kabel'], 'de', $enrich);
+        $afterEdit = $snapshot->sourceHash(['sku' => 'A', 'name' => 'Kabel', 'title [de]' => 'Kabel'], 'de', $enrich);
+
+        self::assertSame($before, $afterTitle, 'an applied enriched field changes nothing');
+        self::assertNotSame($before, $afterEdit, 'an edited input field does');
+        self::assertNotSame($before, $snapshot->sourceHash(['sku' => 'A', 'name' => 'Cable', 'title [de]' => 'Kabel'], 'de'), 'without the exclusion the title counts');
+    }
 }

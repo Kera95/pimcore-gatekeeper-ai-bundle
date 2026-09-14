@@ -249,8 +249,11 @@ writing, every row is checked against the object as it is now:
 
 - the field is still empty (the core bundle's own emptiness rules) — otherwise `stale`,
   "the field is no longer empty";
-- the object's input for that language is unchanged (`source_hash`) — otherwise `stale`,
-  "the object changed since the proposal was made". A person who edits what the model saw wins.
+- the object's input for that language is unchanged (`source_hash`: the non-localized fields
+  and the localized fields of that language, minus the enriched fields themselves) — otherwise
+  `stale`, "the object changed since the proposal was made". A person who edits what the model
+  worked from wins; applying the other language, or one enriched field before the next, does
+  not count as a change.
 
 The save skips the Gatekeeper's warn / block step — the object only gets more complete — but is
 still scored, and the command prints the score per profile and language before and after:

@@ -62,8 +62,9 @@ All notable changes to this bundle are documented here. The format follows
   complete) but is still scored; the score per profile and language before and after is printed.
   The publish state is never changed.
 - `source_hash` is now the hash of the object's non-localized fields plus the localized fields of
-  the proposal's language, so applying one language does not make another language's proposals
-  stale; a person editing what the model saw does.
+  the proposal's language, minus the class's `enrich` fields: applying one language or one
+  enriched field does not make the other proposals stale; a person editing the input the model
+  worked from does (a person filling an enriched field is caught by the still-empty check).
 - `FieldPolicy` refuses paths inside object bricks and field collections.
 - `tsf:gatekeeper:ai:propose [-c Class] [-p gate-profile] [-l language] [-f fields] [--limit N]
   [--estimate] [--dry-run] [--force]`: reads the Gatekeeper's failing rows, plans one group per

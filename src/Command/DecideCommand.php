@@ -75,10 +75,10 @@ abstract class DecideCommand extends Command
             return Command::SUCCESS;
         }
 
-        $result = $this->decide($rows);
         foreach ($rows as $row) {
             $io->writeln(sprintf('%s: %s', $this->describeRow($row), $row->getStatus()->value), OutputInterface::VERBOSITY_VERBOSE);
         }
+        $result = $this->decide($rows);
 
         $io->success(sprintf('%d proposal(s) %s%s.', $result['changed'], $this->done(), $result['skipped'] > 0 ? sprintf(', %d left alone (not %s)', $result['skipped'], $this->appliesTo()) : ''));
 

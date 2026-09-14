@@ -124,9 +124,9 @@ final class ReviewCommand extends Command
         if ($handle === false) {
             return;
         }
-        fputcsv($handle, ['id', 'class', 'object_id', 'field', 'language', 'status', 'current_value', 'proposed_value', 'invalid_reason', 'model', 'created_at'], ',', '"', '\\');
+        fputcsv($handle, ['id', 'class', 'object_id', 'field', 'language', 'status', 'current_value', 'proposed_value', 'invalid_reason', 'model', 'created_at'], ',', '"', '');
         foreach ($rows as $p) {
-            fputcsv($handle, [$p->getId(), $p->getClassName(), $p->getObjectId(), $p->getFieldName(), $p->getLanguage(), $p->getStatus()->value, $p->getCurrentValue() ?? '', $p->getProposedValue(), $p->getInvalidReason() ?? '', $p->getModel(), $p->getCreatedAt()->format('Y-m-d H:i:s')], ',', '"', '\\');
+            fputcsv($handle, [$p->getId(), $p->getClassName(), $p->getObjectId(), $p->getFieldName(), $p->getLanguage(), $p->getStatus()->value, $p->getCurrentValue() ?? '', $p->getProposedValue(), $p->getInvalidReason() ?? '', $p->getModel(), $p->getCreatedAt()->format('Y-m-d H:i:s')], ',', '"', '');
         }
         rewind($handle);
         $output->write((string) stream_get_contents($handle), false, OutputInterface::OUTPUT_RAW);

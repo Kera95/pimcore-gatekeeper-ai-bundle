@@ -76,12 +76,9 @@ final class ProposalDecider
     private function move(array $proposals, array $from, ProposalStatus $to): array
     {
         $changed = 0;
-        $skipped = 0;
         foreach ($proposals as $proposal) {
             $id = $proposal->getId();
             if ($id === null || !in_array($proposal->getStatus(), $from, true)) {
-                $skipped++;
-
                 continue;
             }
             $this->store->updateStatus($id, $to);

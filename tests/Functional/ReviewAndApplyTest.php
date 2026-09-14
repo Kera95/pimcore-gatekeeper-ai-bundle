@@ -10,7 +10,6 @@ use Tsf\GatekeeperAiBundle\Model\Proposal;
 use Tsf\GatekeeperAiBundle\Model\ProposalStatus;
 use Tsf\GatekeeperAiBundle\Service\Apply\ApplyRunner;
 use Tsf\GatekeeperAiBundle\Service\ProposalStore;
-use Tsf\GatekeeperAiBundle\Service\Propose\ObjectSnapshot;
 use Tsf\GatekeeperAiBundle\Tests\Support\Fixture\ClassFixtures;
 use Tsf\GatekeeperAiBundle\Tests\Support\FunctionalTestCase;
 use Tsf\GatekeeperBundle\EventListener\DataObjectListener;
@@ -42,7 +41,7 @@ final class ReviewAndApplyTest extends FunctionalTestCase
         self::assertStringContainsString('3 row(s) shown. All statuses: pending 3', $table->getDisplay());
 
         $csv = $this->runCommand('tsf:gatekeeper:ai:review', ['--format' => 'csv', '--language' => 'en'])->getDisplay();
-        self::assertStringStartsWith("id,class,object_id,field,language,status,current_value,proposed_value", $csv);
+        self::assertStringStartsWith('id,class,object_id,field,language,status,current_value,proposed_value', $csv);
         self::assertSame(2, substr_count($csv, "\n"), 'header plus the one en row');
         self::assertStringContainsString(',GkProduct,' . $product->getId() . ',description,en,pending,,"Proposed description",', $csv);
 
@@ -122,20 +121,39 @@ final class ReviewAndApplyTest extends FunctionalTestCase
         $edited->set('title', 'Kabel', 'de');
         $edited->save();
 
+        $dry = $this->runCommand('tsf:gatekeeper:ai:apply', ['--dry-run' => true]);
+        self::assertStringContainsString('2 value(s) would be written on 1 object(s); 1 stale', $dry->getDisplay());
+        foreach ($this->store->findByObject($product->getId()) as $row) {
+            self::assertSame(ProposalStatus::Approved, $row->getStatus(), 'a dry run reports stale rows but does not move them');
+        }
+
         $apply = $this->runCommand('tsf:gatekeeper:ai:apply');
         $display = $apply->getDisplay();
         $rows = $this->rowsByLabel($product->getId());
 
         self::assertSame(ProposalStatus::Stale, $rows['title [de]']->getStatus());
         self::assertSame('the field is no longer empty', $rows['title [de]']->getInvalidReason());
-        self::assertSame(ProposalStatus::Stale, $rows['description [de]']->getStatus(), 'the German input the model saw is not what it is now');
-        self::assertSame('the object changed since the proposal was made', $rows['description [de]']->getInvalidReason());
-        self::assertSame(ProposalStatus::Applied, $rows['description [en]']->getStatus(), 'the English input is untouched');
-        self::assertStringContainsString('1 value(s) written on 1 object(s); 2 stale', $display);
+        self::assertSame(ProposalStatus::Applied, $rows['description [de]']->getStatus(), 'a filled enriched field does not count as changed input');
+        self::assertSame(ProposalStatus::Applied, $rows['description [en]']->getStatus());
+        self::assertStringContainsString('2 value(s) written on 1 object(s); 1 stale', $display);
 
         self::assertSame('Kabel', $this->localized($product->getId(), 'title', 'de'), 'the human value stays');
-        self::assertNull($this->localized($product->getId(), 'description', 'de'));
+        self::assertSame('Proposed description', $this->localized($product->getId(), 'description', 'de'));
         self::assertSame('Proposed description', $this->localized($product->getId(), 'description', 'en'));
+
+        // an edit to a field the model worked from does make the rest stale
+        $second = $this->proposeFor($this->product(['sku' => 'SKU-2', 'name' => 'Plug', 'title' => ['en' => 'Plug']], false));
+        $this->runCommand('tsf:gatekeeper:ai:approve', ['--all' => true]);
+        /** @var Concrete $renamed */
+        $renamed = Concrete::getById($second->getId(), ['force' => true]);
+        $renamed->set('name', 'Wall plug');
+        $renamed->save();
+
+        $this->runCommand('tsf:gatekeeper:ai:apply');
+        foreach ($this->rowsByLabel($second->getId()) as $row) {
+            self::assertSame(ProposalStatus::Stale, $row->getStatus());
+            self::assertSame('the object changed since the proposal was made', $row->getInvalidReason());
+        }
     }
 
     public function testApplyOnAPublishedBlockGatedObjectSkipsTheGateAndStillScores(): void
@@ -200,13 +218,5 @@ final class ReviewAndApplyTest extends FunctionalTestCase
         }
 
         return $rows;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function complete(): array
-    {
-        return ['sku' => 'SKU-9', 'name' => 'Done', 'title' => ['en' => 'Done', 'de' => 'Fertig'], 'description' => ['en' => 'd', 'de' => 'd']];
     }
 }

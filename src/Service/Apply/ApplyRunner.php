@@ -11,6 +11,7 @@ use Psr\Log\LoggerInterface;
 use Tsf\GatekeeperAiBundle\Model\ApplyReport;
 use Tsf\GatekeeperAiBundle\Model\Proposal;
 use Tsf\GatekeeperAiBundle\Model\ProposalStatus;
+use Tsf\GatekeeperAiBundle\Service\Config\Settings;
 use Tsf\GatekeeperAiBundle\Service\ProposalStore;
 use Tsf\GatekeeperAiBundle\Service\Propose\ObjectSnapshot;
 use Tsf\GatekeeperBundle\EventListener\DataObjectListener;
@@ -32,6 +33,7 @@ use function sprintf;
 final class ApplyRunner
 {
     public function __construct(
+        private readonly Settings $settings,
         private readonly ProposalStore $store,
         private readonly ObjectSnapshot $snapshot,
         private readonly FieldReader $fieldReader,
@@ -89,23 +91,24 @@ final class ApplyRunner
 
         $filled = $this->snapshot->filledFields($object);
         $class = $object->getClass();
+        $enriched = $this->settings->getClass((string) $class->getName())?->getEnrich() ?? [];
         $writable = [];
 
         foreach ($rows as $row) {
             $definition = $this->fieldReader->getDefinition($class, $row->getFieldName());
             if ($definition === null) {
-                $this->markStale($row, $report, 'the field no longer exists on the class');
+                $this->markStale($row, $report, 'the field no longer exists on the class', $dryRun);
 
                 continue;
             }
             $current = $this->fieldReader->readAll($object, $row->getFieldName(), $row->getLanguage() === '' ? null : $row->getLanguage())[0] ?? null;
             if ($this->emptiness->isFilled($definition, $current)) {
-                $this->markStale($row, $report, 'the field is no longer empty');
+                $this->markStale($row, $report, 'the field is no longer empty', $dryRun);
 
                 continue;
             }
-            if ($row->getSourceHash() !== $this->snapshot->sourceHash($filled, $row->getLanguage())) {
-                $this->markStale($row, $report, 'the object changed since the proposal was made');
+            if ($row->getSourceHash() !== $this->snapshot->sourceHash($filled, $row->getLanguage(), $enriched)) {
+                $this->markStale($row, $report, 'the object changed since the proposal was made', $dryRun);
 
                 continue;
             }
@@ -150,9 +153,14 @@ final class ApplyRunner
         $report->addScores($objectId, (string) $object->getKey(), $before, $this->scores($objectId));
     }
 
-    private function markStale(Proposal $row, ApplyReport $report, string $reason): void
+    /**
+     * A dry run only reports; the row is moved to stale by the real run
+     */
+    private function markStale(Proposal $row, ApplyReport $report, string $reason, bool $dryRun): void
     {
-        $this->store->updateStatus((int) $row->getId(), ProposalStatus::Stale, $reason);
+        if (!$dryRun) {
+            $this->store->updateStatus((int) $row->getId(), ProposalStatus::Stale, $reason);
+        }
         $report->add($row, ApplyReport::STALE, $reason);
     }
 

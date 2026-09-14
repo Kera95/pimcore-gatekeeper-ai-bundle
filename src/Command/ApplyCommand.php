@@ -54,9 +54,12 @@ final class ApplyCommand extends Command
         if ($limit !== null) {
             $keep = [];
             $rows = array_values(array_filter($rows, static function (Proposal $row) use (&$keep, $limit): bool {
+                if (!isset($keep[$row->getObjectId()]) && count($keep) >= max(0, (int) $limit)) {
+                    return false;
+                }
                 $keep[$row->getObjectId()] = true;
 
-                return count($keep) <= max(0, (int) $limit);
+                return true;
             }));
         }
 
@@ -84,6 +87,9 @@ final class ApplyCommand extends Command
             $io->section('Completeness before → after');
             $lines = [];
             foreach ($report->getScores() as $objectId => $scores) {
+                if (count($scores['after']) === 0) {
+                    continue;
+                }
                 $parts = [];
                 foreach ($scores['after'] as $label => $after) {
                     $before = $scores['before'][$label] ?? null;
@@ -91,15 +97,17 @@ final class ApplyCommand extends Command
                 }
                 $lines[] = sprintf('%d %s: %s', $objectId, $scores['key'], implode(', ', $parts));
             }
-            $io->listing($lines);
+            if (count($lines) > 0) {
+                $io->listing($lines);
+            }
         }
 
-        $applied = $report->count($dryRun ? ApplyReport::WOULD_APPLY : ApplyReport::APPLIED);
+        $outcome = $dryRun ? ApplyReport::WOULD_APPLY : ApplyReport::APPLIED;
         $io->success(sprintf(
             '%d value(s) %s on %d object(s); %d stale, %d blocked, %d object(s) missing.',
-            $applied,
+            $report->count($outcome),
             $dryRun ? 'would be written' : 'written',
-            $report->getObjectCount(),
+            $report->getObjectCount($outcome),
             $report->count(ApplyReport::STALE),
             $report->count(ApplyReport::BLOCKED),
             $report->count(ApplyReport::MISSING)

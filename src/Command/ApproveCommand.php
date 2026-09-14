@@ -23,7 +23,7 @@ final class ApproveCommand extends DecideCommand
         return 'approved';
     }
 
-    protected function fromStatus(): ?ProposalStatus
+    protected function fromStatus(): ProposalStatus
     {
         return ProposalStatus::Pending;
     }
