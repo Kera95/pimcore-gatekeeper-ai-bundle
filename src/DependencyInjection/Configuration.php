@@ -13,7 +13,7 @@ use function is_string;
 
 final class Configuration implements ConfigurationInterface
 {
-    public const PROVIDERS = ['anthropic'];
+    public const PROVIDERS = ['anthropic', 'fake'];
 
     public const DEFAULT_MODEL = 'claude-opus-5';
 
@@ -46,7 +46,7 @@ final class Configuration implements ConfigurationInterface
                 ->enumNode('provider')
                     ->values(self::PROVIDERS)
                     ->defaultValue('anthropic')
-                    ->info('The LLM provider. Only "anthropic" ships with this version.')
+                    ->info('The LLM provider: "anthropic", or "fake" for tests and dry runs (deterministic stand-in values, no network).')
                 ->end()
                 ->arrayNode('anthropic')
                     ->addDefaultsIfNotSet()

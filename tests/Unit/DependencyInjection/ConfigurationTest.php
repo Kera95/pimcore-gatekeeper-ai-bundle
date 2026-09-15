@@ -77,7 +77,7 @@ final class ConfigurationTest extends Unit
      */
     public static function invalidConfigurations(): iterable
     {
-        yield 'unknown provider' => [['provider' => 'openai'], 'Permissible values: "anthropic"'];
+        yield 'unknown provider' => [['provider' => 'openai'], 'Permissible values: "anthropic", "fake"'];
         yield 'unknown effort' => [['anthropic' => ['effort' => 'max']], 'Permissible values: "low", "medium", "high"'];
         yield 'unknown cache ttl' => [['anthropic' => ['cache_ttl' => '2h']], 'Permissible values: "5m", "1h"'];
         yield 'empty model' => [['anthropic' => ['model' => '']], 'cannot contain an empty value'];

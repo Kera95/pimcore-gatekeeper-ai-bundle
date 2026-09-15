@@ -20,9 +20,9 @@ final class FieldPolicyTest extends Unit
         self::assertNull($policy->describeProblem('title', new Data\Input()));
         self::assertNull($policy->describeProblem('description', new Data\Textarea()));
         self::assertNull($policy->describeProblem('body', new Data\Wysiwyg()));
-        self::assertNull($policy->describeProblem('color', new Data\Select()));
-        self::assertNull($policy->describeProblem('tags', new Data\Multiselect()));
-        self::assertTrue($policy->isEnrichable('bricks.Dimensions.note', new Data\Input()));
+        self::assertNull($policy->describeProblem('color', $this->select(new Data\Select())));
+        self::assertNull($policy->describeProblem('tags', $this->select(new Data\Multiselect())));
+        self::assertStringContainsString('inside an object brick or field collection', (string) $policy->describeProblem('bricks.Dimensions.note', new Data\Input()));
     }
 
     public function testOtherTypesAreRefused(): void
@@ -33,13 +33,27 @@ final class FieldPolicyTest extends Unit
         self::assertFalse($this->policy()->isEnrichable('image', new Data\Image()));
     }
 
-    public function testDeniedNamesAreRefusedCaseInsensitivelyOnTheLastPathSegment(): void
+    public function testSelectsWithoutStaticOptionsAreRefused(): void
+    {
+        $policy = $this->policy();
+
+        self::assertSame('"color" has no options in the class definition (an options provider is not supported); nothing to choose from.', $policy->describeProblem('color', new Data\Select()));
+        self::assertStringContainsString('has no options', (string) $policy->describeProblem('tags', new Data\Multiselect()));
+    }
+
+    public function testDeniedNamesAreRefusedCaseInsensitively(): void
     {
         $policy = $this->policy(['fields' => ['deny' => ['SKU', 'ean']]]);
 
         self::assertSame('"sku" is on the deny list (tsf_gatekeeper_ai.fields.deny).', $policy->describeProblem('sku', new Data\Input()));
-        self::assertSame('"bricks.Ids.EAN" is on the deny list (tsf_gatekeeper_ai.fields.deny).', $policy->describeProblem('bricks.Ids.EAN', new Data\Input()));
         self::assertNull($policy->describeProblem('price', new Data\Input()), 'the configured list replaces the default one');
+    }
+
+    private function select(Data\Select|Data\Multiselect $definition): Data\Select|Data\Multiselect
+    {
+        $definition->setOptions([['key' => 'Red', 'value' => 'red']]);
+
+        return $definition;
     }
 
     /**

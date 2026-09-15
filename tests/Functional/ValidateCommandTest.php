@@ -10,7 +10,9 @@ use Tsf\GatekeeperAiBundle\DependencyInjection\Configuration;
 use Tsf\GatekeeperAiBundle\Model\ClassSettings;
 use Tsf\GatekeeperAiBundle\Service\Config\Settings;
 use Tsf\GatekeeperAiBundle\Service\Config\SettingsValidator;
+use Tsf\GatekeeperAiBundle\Service\Context\KnowledgeBase;
 use Tsf\GatekeeperAiBundle\Service\Field\FieldPolicy;
+use Tsf\GatekeeperAiBundle\Service\TokenEstimator;
 use Tsf\GatekeeperAiBundle\Tests\Support\Fixture\ClassFixtures;
 use Tsf\GatekeeperAiBundle\Tests\Support\FunctionalTestCase;
 use Tsf\GatekeeperBundle\Service\Config\RuleSet;
@@ -19,24 +21,22 @@ use Tsf\GatekeeperBundle\Service\LanguageProvider;
 
 final class ValidateCommandTest extends FunctionalTestCase
 {
-    public function testReportsTheProblemsOfTheTestConfiguration(): void
+    public function testReportsTheWarningsOfTheTestConfiguration(): void
     {
         $tester = $this->runCommand('tsf:gatekeeper:ai:validate');
         $output = $tester->getDisplay();
 
-        self::assertSame(1, $tester->getStatusCode(), $output);
-        self::assertStringContainsString('provider anthropic, model claude-opus-5, knowledge base /gatekeeper/context', $output);
+        self::assertSame(0, $tester->getStatusCode(), $output);
+        self::assertStringContainsString('WARN  provider fake, model claude-opus-5, knowledge base /gatekeeper/context', $output);
         self::assertStringContainsString('Knowledge base folder "/gatekeeper/context" does not exist', $output);
         self::assertStringNotContainsString('No API key', $output);
         self::assertStringNotContainsString('test-key-never-sent', $output, 'the key is never printed');
 
-        self::assertStringContainsString('ERROR GkProduct (enrich: title, description, sku, weight, seo_title; languages: en, de)', $output);
-        self::assertStringContainsString('"sku" is on the deny list', $output);
-        self::assertStringContainsString('"weight" is of type numeric', $output);
+        self::assertStringContainsString('WARN  GkProduct (enrich: title, description, seo_title; languages: en, de)', $output);
         self::assertStringContainsString('warning: enrich: "seo_title" is not required by any profile', $output);
 
         self::assertStringContainsString('OK    GkCategory (enrich: title)', $output);
-        self::assertStringContainsString('1 check(s) failed', $output);
+        self::assertStringContainsString('The configuration is valid.', $output);
     }
 
     public function testAValidConfigurationPasses(): void
@@ -48,9 +48,16 @@ final class ValidateCommandTest extends FunctionalTestCase
 
         $folder = Asset\Service::createFolderByPath('/gatekeeper/context');
         try {
+            self::assertSame(['problems' => [], 'warnings' => ['Knowledge base folder "/gatekeeper/context" has no .md files (directly in it or in _global/); the model gets no knowledge base until it does.']], $validator->validateGlobal());
+
+            $asset = new Asset();
+            $asset->setParent($folder);
+            $asset->setFilename('tone.md');
+            $asset->setData('Friendly.');
+            $asset->save();
             self::assertSame(['problems' => [], 'warnings' => []], $validator->validateGlobal());
         } finally {
-            $folder->delete();
+            Asset::getByPath('/gatekeeper')?->delete();
         }
 
         self::assertSame(
@@ -102,6 +109,6 @@ final class ValidateCommandTest extends FunctionalTestCase
         /** @var LanguageProvider $languages */
         $languages = $this->service(LanguageProvider::class);
 
-        return new SettingsValidator($settings, $rules, $fieldReader, new FieldPolicy($settings), $languages);
+        return new SettingsValidator($settings, $rules, $fieldReader, new FieldPolicy($settings), $languages, new KnowledgeBase($settings, new TokenEstimator()));
     }
 }

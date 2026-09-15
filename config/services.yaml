@@ -16,3 +16,7 @@ services:
         public: true
         arguments:
             $bundle: "@=service('kernel').getBundle('TsfGatekeeperAiBundle')"
+
+    Tsf\GatekeeperAiBundle\EventListener\DataObjectListener:
+        tags:
+            - { name: kernel.event_listener, event: pimcore.dataobject.postDelete, method: onPostDelete }

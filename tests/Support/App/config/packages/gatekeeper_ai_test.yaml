@@ -57,14 +57,16 @@ tsf_gatekeeper:
         studio: false
 
 tsf_gatekeeper_ai:
+    # the fake provider answers without a network; the Anthropic one is unit-tested with a mock client
+    provider: fake
     anthropic:
         api_key: 'test-key-never-sent'
     context:
         asset_folder: /gatekeeper/context
     classes:
         GkProduct:
-            # sku is denied, weight is numeric, seo_title is not required: validate reports them
-            enrich: [title, description, sku, weight, seo_title]
+            # seo_title is not required by the gate: validate warns, propose never asks for it
+            enrich: [title, description, seo_title]
             languages: [en, de]
         GkCategory:
             enrich: [title]
@@ -73,5 +75,35 @@ services:
     # the store has no consumer in the container yet; keep it out of the compiler's inlining
     # so the tests can fetch it through the test container
     Tsf\GatekeeperAiBundle\Service\ProposalStore:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Field\FieldSpecFactory:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Field\SchemaBuilder:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Field\FieldDescriber:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Prompt\SampleRequestFactory:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Provider\EnrichmentProviderInterface:
+        alias: Tsf\GatekeeperAiBundle\Service\Provider\FakeProvider
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Propose\RunPlanner:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Propose\ProposeRunner:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Propose\ObjectSnapshot:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Apply\ApplyRunner:
+        autowire: true
+        public: true
+    Tsf\GatekeeperAiBundle\Service\Review\ProposalDecider:
         autowire: true
         public: true
