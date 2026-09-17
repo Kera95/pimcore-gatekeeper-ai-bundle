@@ -6,6 +6,8 @@ All notable changes to this bundle are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-17
+
 First release of the AI layer, for Pimcore 11.x, 12.x and 2026.x on PHP 8.1 to 8.5, on top of
 `kerimkaralic/pimcore-gatekeeper-bundle` ^1.1.
 
